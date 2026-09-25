@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useSite } from '../context/SiteContext.jsx';
 import SetupItem from '../components/SetupItem.jsx';
 import AffiliateDisclosure from '../components/AffiliateDisclosure.jsx';
 import { initialSetupItems } from '../data/initialSetupItems.js';
@@ -6,6 +7,7 @@ import { Monitor, Compass, Sparkles, SlidersHorizontal } from 'lucide-react';
 import heroDeskImg from '../assets/images/hero_setup_desk_1790324766242.jpg';
 
 export default function MySetupPage({ onSelectProduct, onNavigate }) {
+  const { products } = useSite();
   const [activeFilter, setActiveFilter] = useState('all');
 
   const setupCategories = [
@@ -21,9 +23,23 @@ export default function MySetupPage({ onSelectProduct, onNavigate }) {
     'Coding Gear'
   ];
 
+  const setupItems = initialSetupItems.map((item) => {
+    const matchedProduct = products.find((product) => product.id === item.productId);
+
+    return {
+      ...item,
+      image: matchedProduct?.imageUrl || matchedProduct?.image || item.image,
+      productName: matchedProduct?.name || item.productName,
+      itemTitle: matchedProduct?.shortDescription || item.itemTitle,
+      affiliateUrl: matchedProduct?.affiliateUrl || item.affiliateUrl,
+      price: matchedProduct?.price ?? item.price,
+      category: item.category
+    };
+  });
+
   const filteredItems = activeFilter === 'all'
-    ? initialSetupItems
-    : initialSetupItems.filter((i) => i.category === activeFilter);
+    ? setupItems
+    : setupItems.filter((i) => i.category === activeFilter);
 
   return (
     <div className="max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-10 xl:px-12 pt-20 sm:pt-24 pb-12 space-y-10 sm:space-y-12 text-left">

@@ -6,13 +6,15 @@ import {
   createProduct,
   updateProduct,
   deleteProduct,
-  uploadProductImage
+  uploadProductImage,
+  fetchCollaborationInquiries,
+  updateCollaborationInquiryStatus,
+  deleteCollaborationInquiry
 } from '../services/api.js';
 import {
   ShieldCheck,
   Package,
   Layers,
-  Store as StoreIcon,
   BarChart3,
   Settings,
   Plus,
@@ -31,6 +33,7 @@ import {
   Lock,
   Eye,
   EyeOff,
+  Mail,
   Upload,
   Link2,
   Image as ImageIcon,
@@ -42,7 +45,7 @@ import { formatPrice, formatDate } from '../utils/formatters.js';
 
 export default function AdminDashboardPage({ onNavigate }) {
   const { adminUser, token, isAuthenticated, login, logout } = useAuth();
-  const { siteConfig, updateConfig, products, categories, stores, refreshData } = useSite();
+  const { siteConfig, updateConfig, products, categories, refreshData } = useSite();
 
   const [activeTab, setActiveTab] = useState('overview');
 
@@ -55,6 +58,9 @@ export default function AdminDashboardPage({ onNavigate }) {
   // Analytics Data
   const [analytics, setAnalytics] = useState(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [inquiries, setInquiries] = useState([]);
+  const [inquiriesLoading, setInquiriesLoading] = useState(false);
+  const [selectedInquiry, setSelectedInquiry] = useState(null);
 
   // Product Editing / Modal State
   const [editingProduct, setEditingProduct] = useState(null);
@@ -105,6 +111,9 @@ export default function AdminDashboardPage({ onNavigate }) {
     if (isAuthenticated && (activeTab === 'overview' || activeTab === 'analytics')) {
       loadAnalyticsData();
     }
+    if (isAuthenticated && activeTab === 'inquiries') {
+      loadInquiriesData();
+    }
   }, [isAuthenticated, activeTab]);
 
   const loadAnalyticsData = async () => {
@@ -116,6 +125,47 @@ export default function AdminDashboardPage({ onNavigate }) {
       console.warn('Analytics loading error:', e);
     } finally {
       setAnalyticsLoading(false);
+    }
+  };
+
+  const loadInquiriesData = async () => {
+    if (!token) return;
+    setInquiriesLoading(true);
+    try {
+      const data = await fetchCollaborationInquiries(token);
+      setInquiries(data || []);
+    } catch (e) {
+      console.warn('Inquiries loading error:', e);
+      setInquiries([]);
+    } finally {
+      setInquiriesLoading(false);
+    }
+  };
+
+  const handleStatusChange = async (id, status) => {
+    try {
+      await updateCollaborationInquiryStatus(id, status, token);
+      setInquiries((prev) => prev.map((item) => item.inquiryId === id ? { ...item, status } : item));
+      if (selectedInquiry && selectedInquiry.inquiryId === id) {
+        setSelectedInquiry((prev) => ({ ...prev, status }));
+      }
+    } catch (e) {
+      console.error('Status update error:', e);
+      alert(e.message || 'Failed to update inquiry status');
+    }
+  };
+
+  const handleDeleteInquiry = async (id) => {
+    if (!window.confirm('Delete this collaboration inquiry?')) return;
+    try {
+      await deleteCollaborationInquiry(id, token);
+      setInquiries((prev) => prev.filter((item) => item.inquiryId !== id));
+      if (selectedInquiry && selectedInquiry.inquiryId === id) {
+        setSelectedInquiry(null);
+      }
+    } catch (e) {
+      console.error('Inquiry delete error:', e);
+      alert(e.message || 'Failed to delete inquiry');
     }
   };
 
@@ -641,7 +691,7 @@ export default function AdminDashboardPage({ onNavigate }) {
           { id: 'overview', label: 'Overview', icon: BarChart3 },
           { id: 'products', label: `Products (${products.length})`, icon: Package },
           { id: 'categories', label: `Categories (${categories.length})`, icon: Layers },
-          { id: 'stores', label: `Stores & Partners (${stores.length})`, icon: StoreIcon },
+          { id: 'inquiries', label: `Collaboration Inquiries (${inquiries.length})`, icon: Mail },
           { id: 'analytics', label: 'Click Analytics', icon: MousePointerClick },
           { id: 'settings', label: 'Site Settings', icon: Settings }
         ].map((tab) => {
@@ -893,6 +943,147 @@ export default function AdminDashboardPage({ onNavigate }) {
         </div>
       )}
 
+      {/* TAB 4: COLLABORATION INQUIRIES */}
+      {activeTab === 'inquiries' && (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="font-display font-bold text-2xl text-white">
+                Collaboration Inquiries
+              </h2>
+              <p className="text-xs text-[#A8A0B8]">
+                Review, update, and manage submitted brand partnership requests.
+              </p>
+            </div>
+          </div>
+
+          {inquiriesLoading ? (
+            <div className="p-6 rounded-2xl bg-[#120D1A] border border-purple-500/15 text-xs text-[#A8A0B8]">
+              Loading inquiries...
+            </div>
+          ) : inquiries.length === 0 ? (
+            <div className="p-6 rounded-2xl bg-[#120D1A] border border-purple-500/15 text-xs text-[#A8A0B8]">
+              No collaboration inquiries have been submitted yet.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 xl:grid-cols-[1.1fr,0.9fr] gap-6">
+              <div className="rounded-2xl border border-purple-500/15 overflow-hidden bg-[#120D1A]">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-[#171020] text-[#A8A0B8] uppercase tracking-wider font-semibold border-b border-purple-900/20">
+                      <tr>
+                        <th className="p-3.5">Brand</th>
+                        <th className="p-3.5">Contact</th>
+                        <th className="p-3.5">Status</th>
+                        <th className="p-3.5">Date</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-purple-900/15">
+                      {inquiries.map((inquiry) => (
+                        <tr
+                          key={inquiry.inquiryId}
+                          className={`hover:bg-purple-950/20 transition-colors cursor-pointer ${selectedInquiry?.inquiryId === inquiry.inquiryId ? 'bg-purple-950/20' : ''}`}
+                          onClick={() => setSelectedInquiry(inquiry)}
+                        >
+                          <td className="p-3.5">
+                            <div className="font-bold text-white text-sm">{inquiry.brand}</div>
+                            <div className="text-[11px] text-purple-300">{inquiry.collaborationType}</div>
+                          </td>
+                          <td className="p-3.5 text-[#A8A0B8]">
+                            <div>{inquiry.name}</div>
+                            <div className="text-[11px] text-purple-300">{inquiry.email}</div>
+                          </td>
+                          <td className="p-3.5">
+                            <span className="inline-flex px-2 py-1 rounded-full border border-purple-500/25 bg-[#171020] text-purple-300 text-[10px] uppercase tracking-wider">
+                              {inquiry.status}
+                            </span>
+                          </td>
+                          <td className="p-3.5 text-[#A8A0B8]">
+                            {formatDate(inquiry.createdAt)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="rounded-2xl bg-[#120D1A] border border-purple-500/15 p-5 space-y-4">
+                {selectedInquiry ? (
+                  <>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-[11px] uppercase tracking-wider text-purple-400">Inquiry Details</div>
+                        <h3 className="font-display font-bold text-xl text-white mt-1">{selectedInquiry.brand}</h3>
+                      </div>
+                      <button
+                        onClick={() => handleDeleteInquiry(selectedInquiry.inquiryId)}
+                        className="p-2 rounded-lg text-red-400 hover:bg-red-950/50 cursor-pointer"
+                        title="Delete inquiry"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div className="space-y-3 text-xs text-[#A8A0B8]">
+                      <div>
+                        <span className="font-semibold text-white block">Contact person</span>
+                        <span>{selectedInquiry.name}</span>
+                      </div>
+                      <div>
+                        <span className="font-semibold text-white block">Email</span>
+                        <span>{selectedInquiry.email}</span>
+                      </div>
+                      {selectedInquiry.website && (
+                        <div>
+                          <span className="font-semibold text-white block">Website / Social</span>
+                          <a href={selectedInquiry.website} target="_blank" rel="noreferrer" className="text-purple-300 hover:underline break-all">
+                            {selectedInquiry.website}
+                          </a>
+                        </div>
+                      )}
+                      <div>
+                        <span className="font-semibold text-white block">Collaboration type</span>
+                        <span>{selectedInquiry.collaborationType}</span>
+                      </div>
+                      <div>
+                        <span className="font-semibold text-white block">Submitted</span>
+                        <span>{formatDate(selectedInquiry.createdAt)}</span>
+                      </div>
+                      <div>
+                        <span className="font-semibold text-white block">Message</span>
+                        <p className="text-[#A8A0B8] whitespace-pre-wrap leading-relaxed">
+                          {selectedInquiry.message}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-purple-900/20">
+                      <label className="block text-[11px] uppercase tracking-wider text-[#A8A0B8] mb-2">
+                        Update Status
+                      </label>
+                      <select
+                        value={selectedInquiry.status}
+                        onChange={(e) => handleStatusChange(selectedInquiry.inquiryId, e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#0B0710] border border-purple-500/20 text-white text-xs focus:outline-none focus:border-purple-400 cursor-pointer"
+                      >
+                        {['New', 'Contacted', 'In Discussion', 'Accepted', 'Rejected', 'Completed'].map((status) => (
+                          <option key={status} value={status}>{status}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-xs text-[#A8A0B8] pt-8 text-center">
+                    Select an inquiry to view full details.
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* TAB 3: CATEGORIES */}
       {activeTab === 'categories' && (
         <div className="space-y-6">
@@ -922,45 +1113,6 @@ export default function AdminDashboardPage({ onNavigate }) {
                 <div className="pt-2 text-[11px] text-purple-300/80">
                   Associated products: {products.filter((p) => p.category === (cat.slug || cat.id)).length}
                 </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* TAB 4: STORES */}
-      {activeTab === 'stores' && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="font-display font-bold text-2xl text-white">
-              Partner Stores &amp; Networks
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {stores.map((store) => (
-              <div
-                key={store.id}
-                className="p-5 rounded-2xl bg-[#120D1A] border border-purple-500/15 space-y-3"
-              >
-                <div className="flex items-center justify-between">
-                  <h3 className="font-bold text-white text-base">{store.name}</h3>
-                  <span className="text-xs font-semibold text-purple-400">
-                    {store.category}
-                  </span>
-                </div>
-                <p className="text-xs text-[#A8A0B8] leading-relaxed">
-                  {store.description}
-                </p>
-                <a
-                  href={store.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs text-purple-300 hover:underline pt-1"
-                >
-                  <span>Verify link</span>
-                  <ExternalLink className="w-3 h-3" />
-                </a>
               </div>
             ))}
           </div>

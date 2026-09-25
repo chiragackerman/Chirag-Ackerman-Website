@@ -5,9 +5,8 @@ import Stats from '../components/Stats.jsx';
 import CategoryCard from '../components/CategoryCard.jsx';
 import ProductCard from '../components/ProductCard.jsx';
 import AmazonStorefrontSection from '../components/AmazonStorefrontSection.jsx';
-import StoreCard from '../components/StoreCard.jsx';
 import AffiliateDisclosure from '../components/AffiliateDisclosure.jsx';
-import { ArrowRight, Sparkles, Monitor, Layers, Store as StoreIcon } from 'lucide-react';
+import { ArrowRight, Sparkles, Monitor, Layers } from 'lucide-react';
 
 export default function HomePage({ onNavigate, onSelectProduct, onSelectCategory }) {
   const { products, categories, stores } = useSite();
@@ -120,29 +119,7 @@ export default function HomePage({ onNavigate, onSelectProduct, onSelectCategory
         </div>
       </section>
 
-      {/* 7. Other Stores & Brands */}
-      <section className="max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-10 xl:px-12 py-4 sm:py-6">
-        <div className="mb-6 text-left">
-          <div className="inline-flex items-center gap-1.5 text-xs uppercase tracking-widest text-purple-400 font-semibold mb-1.5">
-            <StoreIcon className="w-3.5 h-3.5" />
-            <span>Retail &amp; Partner Network</span>
-          </div>
-          <h2 className="font-display font-bold text-2xl sm:text-3xl lg:text-4xl text-white tracking-tight">
-            OTHER STORES &amp; BRANDS
-          </h2>
-          <p className="text-xs sm:text-sm text-[#A8A0B8] mt-1">
-            Official partner stores, brand websites, and specialized tech distributors.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6">
-          {stores.map((store) => (
-            <StoreCard key={store.id} store={store} />
-          ))}
-        </div>
-      </section>
-
-      {/* 8. Affiliate Disclosure snippet */}
+      {/* Affiliate Disclosure snippet */}
       <div className="max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-10 xl:px-12">
         <AffiliateDisclosure compact={false} onNavigate={onNavigate} />
       </div>

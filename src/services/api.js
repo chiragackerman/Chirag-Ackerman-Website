@@ -212,8 +212,51 @@ export async function submitCollab(data) {
     body: JSON.stringify(data)
   });
   if (!res.ok) {
-    const err = await res.json();
+    const err = await res.json().catch(() => ({}));
     throw new Error(err.error || 'Failed to submit proposal');
+  }
+  return await res.json();
+}
+
+export async function fetchCollaborationInquiries(token) {
+  const res = await fetch(`${API_BASE}/collaborate`, {
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to fetch collaboration inquiries');
+  }
+  return await res.json();
+}
+
+export async function updateCollaborationInquiryStatus(id, status, token) {
+  const res = await fetch(`${API_BASE}/collaborate/${id}/status`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify({ status })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to update inquiry status');
+  }
+  return await res.json();
+}
+
+export async function deleteCollaborationInquiry(id, token) {
+  const res = await fetch(`${API_BASE}/collaborate/${id}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to delete inquiry');
   }
   return await res.json();
 }

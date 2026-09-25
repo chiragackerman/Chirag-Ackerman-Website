@@ -6,6 +6,8 @@ export default function SetupItem({ item, index, onSelectProduct }) {
   const { trackAndOpenAffiliate, products } = useSite();
 
   const matchedProduct = products.find((p) => p.id === item.productId);
+  const displayImage = matchedProduct?.imageUrl || matchedProduct?.image || item.image;
+  const displayTitle = matchedProduct?.name || item.productName;
 
   const handleOpenProduct = (e) => {
     e.stopPropagation();
@@ -26,8 +28,8 @@ export default function SetupItem({ item, index, onSelectProduct }) {
           <div className="relative rounded-2xl overflow-hidden border border-purple-500/20 bg-[#120D1A] purple-glow group">
             <div className="aspect-[4/3] w-full overflow-hidden">
               <img
-                src={item.image}
-                alt={item.productName}
+                src={displayImage}
+                alt={displayTitle}
                 referrerPolicy="no-referrer"
                 className="w-full h-full object-cover object-center group-hover:scale-104 transition-transform duration-700"
               />
@@ -45,10 +47,10 @@ export default function SetupItem({ item, index, onSelectProduct }) {
               {item.category}
             </span>
             <h3 className="font-display font-black text-2xl sm:text-3xl text-white tracking-tight">
-              {item.productName}
+              {displayTitle}
             </h3>
             <p className="text-sm font-semibold text-purple-300">
-              {item.itemTitle}
+              {matchedProduct?.shortDescription || item.itemTitle}
             </p>
           </div>
 

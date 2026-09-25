@@ -8,6 +8,7 @@ import { Category } from '../models/Category.js';
 import { Store } from '../models/Store.js';
 import { Click } from '../models/Click.js';
 import { SiteSetting } from '../models/SiteSetting.js';
+import { CollaborationInquiry } from '../models/CollaborationInquiry.js';
 
 let isMongoConnected = false;
 
@@ -253,6 +254,89 @@ export const dbService = {
     }
     memoryStore.siteConfig = { ...memoryStore.siteConfig, ...newConfig };
     return memoryStore.siteConfig;
+  },
+
+  // Collaboration Inquiries
+  async createCollaborationInquiry(data) {
+    const inquiryId = `inq-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    const inquiry = {
+      inquiryId,
+      brand: data.brand?.trim(),
+      name: data.name?.trim(),
+      email: data.email?.trim().toLowerCase(),
+      website: data.website?.trim() || '',
+      collaborationType: data.collaborationType?.trim() || 'Product Feature & Review',
+      message: data.message?.trim() || '',
+      status: 'New',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    if (isMongoConnected) {
+      return await CollaborationInquiry.create(inquiry);
+    }
+
+    memoryStore.collaborationInquiries = memoryStore.collaborationInquiries || [];
+    memoryStore.collaborationInquiries.unshift(inquiry);
+    return inquiry;
+  },
+
+  async getCollaborationInquiries() {
+    if (isMongoConnected) {
+      return await CollaborationInquiry.find().sort({ createdAt: -1 });
+    }
+
+    memoryStore.collaborationInquiries = memoryStore.collaborationInquiries || [];
+    return [...memoryStore.collaborationInquiries].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  },
+
+  async getCollaborationInquiryById(id) {
+    if (isMongoConnected) {
+      return await CollaborationInquiry.findOne({ inquiryId: id }) || await CollaborationInquiry.findById(id).catch(() => null);
+    }
+
+    memoryStore.collaborationInquiries = memoryStore.collaborationInquiries || [];
+    return memoryStore.collaborationInquiries.find((item) => item.inquiryId === id) || null;
+  },
+
+  async updateCollaborationInquiryStatus(id, status) {
+    const allowed = ['New', 'Contacted', 'In Discussion', 'Accepted', 'Rejected', 'Completed'];
+    if (!allowed.includes(status)) {
+      throw new Error('Invalid inquiry status');
+    }
+
+    if (isMongoConnected) {
+      const updated = await CollaborationInquiry.findOneAndUpdate(
+        { inquiryId: id },
+        { status, updatedAt: new Date() },
+        { new: true }
+      );
+      if (!updated) return null;
+      return updated;
+    }
+
+    memoryStore.collaborationInquiries = memoryStore.collaborationInquiries || [];
+    const index = memoryStore.collaborationInquiries.findIndex((item) => item.inquiryId === id);
+    if (index === -1) return null;
+    memoryStore.collaborationInquiries[index] = {
+      ...memoryStore.collaborationInquiries[index],
+      status,
+      updatedAt: new Date()
+    };
+    return memoryStore.collaborationInquiries[index];
+  },
+
+  async deleteCollaborationInquiry(id) {
+    if (isMongoConnected) {
+      const deleted = await CollaborationInquiry.findOneAndDelete({ inquiryId: id });
+      return deleted;
+    }
+
+    memoryStore.collaborationInquiries = memoryStore.collaborationInquiries || [];
+    const index = memoryStore.collaborationInquiries.findIndex((item) => item.inquiryId === id);
+    if (index === -1) return null;
+    const [deleted] = memoryStore.collaborationInquiries.splice(index, 1);
+    return deleted;
   },
 
   // Click Tracking Analytics

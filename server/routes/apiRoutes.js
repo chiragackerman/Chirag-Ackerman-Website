@@ -265,17 +265,100 @@ router.post('/auth/login', async (req, res) => {
 router.post('/collaborate', async (req, res) => {
   try {
     const { name, brand, email, website, collaborationType, message } = req.body;
+
     if (!name || !brand || !email || !message) {
       return res.status(400).json({ error: 'Please provide all required fields' });
     }
-    // In production, would send notification email to chiragackerman1112@gmail.com
-    console.log(`[New Brand Inquiry] From: ${name} (${brand} - ${email}), Type: ${collaborationType}`);
-    res.json({
+
+    const contactName = String(name).trim();
+    const companyName = String(brand).trim();
+    const emailAddress = String(email).trim().toLowerCase();
+    const websiteValue = website ? String(website).trim() : '';
+    const messageText = String(message).trim();
+    const typeValue = collaborationType ? String(collaborationType).trim() : 'Product Feature & Review';
+
+    if (!contactName || !companyName || !emailAddress || !messageText) {
+      return res.status(400).json({ error: 'Please provide all required fields' });
+    }
+
+    if (!emailAddress.includes('@') || !emailAddress.includes('.')) {
+      return res.status(400).json({ error: 'Please enter a valid email address' });
+    }
+
+    if (websiteValue && !/^https?:\/\//i.test(websiteValue)) {
+      return res.status(400).json({ error: 'Please provide a valid website URL' });
+    }
+
+    const inquiry = await dbService.createCollaborationInquiry({
+      name: contactName,
+      brand: companyName,
+      email: emailAddress,
+      website: websiteValue,
+      collaborationType: typeValue,
+      message: messageText
+    });
+
+    console.log(`[New Brand Inquiry] From: ${contactName} (${companyName} - ${emailAddress}), Type: ${typeValue}`);
+    res.status(201).json({
       success: true,
+      inquiryId: inquiry.inquiryId || inquiry._id,
       message: 'Collaboration proposal received. Chirag Ackerman will review and respond within 24-48 hours.'
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Collaboration submission error:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to submit collaboration inquiry' });
+  }
+});
+
+router.get('/collaborate', requireAdmin, async (req, res) => {
+  try {
+    const inquiries = await dbService.getCollaborationInquiries();
+    res.json(inquiries);
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Failed to fetch inquiries' });
+  }
+});
+
+router.get('/collaborate/:id', requireAdmin, async (req, res) => {
+  try {
+    const inquiry = await dbService.getCollaborationInquiryById(req.params.id);
+    if (!inquiry) {
+      return res.status(404).json({ error: 'Inquiry not found' });
+    }
+    res.json(inquiry);
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Failed to fetch inquiry' });
+  }
+});
+
+router.patch('/collaborate/:id/status', requireAdmin, async (req, res) => {
+  try {
+    const { status } = req.body;
+    if (!status) {
+      return res.status(400).json({ error: 'Status is required' });
+    }
+
+    const updated = await dbService.updateCollaborationInquiryStatus(req.params.id, status);
+    if (!updated) {
+      return res.status(404).json({ error: 'Inquiry not found' });
+    }
+
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Failed to update inquiry status' });
+  }
+});
+
+router.delete('/collaborate/:id', requireAdmin, async (req, res) => {
+  try {
+    const deleted = await dbService.deleteCollaborationInquiry(req.params.id);
+    if (!deleted) {
+      return res.status(404).json({ error: 'Inquiry not found' });
+    }
+
+    res.json({ success: true, message: 'Inquiry deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Failed to delete inquiry' });
   }
 });
 
