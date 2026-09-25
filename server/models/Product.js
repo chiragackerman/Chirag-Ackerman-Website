@@ -18,6 +18,7 @@ const productSchema = new mongoose.Schema({
   platform: { type: String, default: 'Amazon' },
   storeName: { type: String, default: 'Amazon' },
   affiliateUrl: { type: String, required: true, trim: true },
+  couponCode: { type: String, default: '', trim: true },
   price: { type: Number, default: null },
   currency: { type: String, default: '₹' },
   originalPrice: { type: Number, default: null },

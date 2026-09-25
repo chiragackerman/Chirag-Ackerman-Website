@@ -24,11 +24,11 @@ export const initialCategories = [
     featured: true
   },
   {
-    id: "monitors",
-    name: "Monitors",
-    slug: "monitors",
-    description: "High refresh rate IPS displays and ultrawide screens optimized for multi-window coding and gaming.",
-    iconName: "Monitor",
+    id: "collectibles-decor",
+    name: "Collectibles & Decor",
+    slug: "collectibles-decor",
+    description: "Posters, anime collectibles, action figures, keychains, and display pieces for expressive spaces.",
+    iconName: "Gift",
     featured: true
   },
   {

@@ -1,47 +1,35 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { loginAdmin } from '../services/api.js';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { fetchAdminSession, loginAdmin, logoutAdmin } from '../services/api.js';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [adminUser, setAdminUser] = useState(() => {
-    try {
-      const stored = localStorage.getItem('chirag_admin_user');
-      return stored ? JSON.parse(stored) : null;
-    } catch {
-      return null;
-    }
-  });
+  const [adminUser, setAdminUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
 
-  const [token, setToken] = useState(() => {
-    try {
-      return localStorage.getItem('chirag_admin_token') || null;
-    } catch {
-      return null;
-    }
-  });
+  useEffect(() => {
+    fetchAdminSession()
+      .then((session) => setAdminUser(session?.authenticated ? session.user : null))
+      .catch(() => setAdminUser(null))
+      .finally(() => setAuthLoading(false));
+  }, []);
 
-  const login = async ({ email, password, googleUser }) => {
-    const data = await loginAdmin({ email, password, googleUser });
+  const login = async ({ email, password }) => {
+    const data = await loginAdmin({ email, password });
     if (data.success) {
       setAdminUser(data.user);
-      setToken(data.token);
-      localStorage.setItem('chirag_admin_user', JSON.stringify(data.user));
-      localStorage.setItem('chirag_admin_token', data.token);
       return data.user;
     }
     throw new Error('Authentication failed');
   };
 
-  const logout = () => {
+  const logout = async () => {
+    await logoutAdmin();
     setAdminUser(null);
-    setToken(null);
-    localStorage.removeItem('chirag_admin_user');
-    localStorage.removeItem('chirag_admin_token');
   };
 
   return (
-    <AuthContext.Provider value={{ adminUser, token, isAuthenticated: !!adminUser, login, logout }}>
+    <AuthContext.Provider value={{ adminUser, isAuthenticated: !!adminUser, authLoading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

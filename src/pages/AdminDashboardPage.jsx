@@ -44,16 +44,16 @@ import {
 import { formatPrice, formatDate } from '../utils/formatters.js';
 
 export default function AdminDashboardPage({ onNavigate }) {
-  const { adminUser, token, isAuthenticated, login, logout } = useAuth();
+  const { adminUser, isAuthenticated, authLoading, login, logout } = useAuth();
   const { siteConfig, updateConfig, products, categories, refreshData } = useSite();
 
   const [activeTab, setActiveTab] = useState('overview');
 
   // Auth Form State
-  const [authEmail, setAuthEmail] = useState('chiragackerman1112@gmail.com');
+  const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [authError, setAuthError] = useState('');
-  const [authLoading, setAuthLoading] = useState(false);
+  const [loginLoading, setLoginLoading] = useState(false);
 
   // Analytics Data
   const [analytics, setAnalytics] = useState(null);
@@ -85,6 +85,7 @@ export default function AdminDashboardPage({ onNavigate }) {
     platform: 'Amazon',
     storeName: 'Amazon India',
     affiliateUrl: '',
+    couponCode: '',
     price: '',
     currency: '₹',
     originalPrice: '',
@@ -119,7 +120,7 @@ export default function AdminDashboardPage({ onNavigate }) {
   const loadAnalyticsData = async () => {
     setAnalyticsLoading(true);
     try {
-      const data = await fetchAnalytics(token);
+      const data = await fetchAnalytics();
       setAnalytics(data);
     } catch (e) {
       console.warn('Analytics loading error:', e);
@@ -129,10 +130,9 @@ export default function AdminDashboardPage({ onNavigate }) {
   };
 
   const loadInquiriesData = async () => {
-    if (!token) return;
     setInquiriesLoading(true);
     try {
-      const data = await fetchCollaborationInquiries(token);
+      const data = await fetchCollaborationInquiries();
       setInquiries(data || []);
     } catch (e) {
       console.warn('Inquiries loading error:', e);
@@ -144,7 +144,7 @@ export default function AdminDashboardPage({ onNavigate }) {
 
   const handleStatusChange = async (id, status) => {
     try {
-      await updateCollaborationInquiryStatus(id, status, token);
+      await updateCollaborationInquiryStatus(id, status);
       setInquiries((prev) => prev.map((item) => item.inquiryId === id ? { ...item, status } : item));
       if (selectedInquiry && selectedInquiry.inquiryId === id) {
         setSelectedInquiry((prev) => ({ ...prev, status }));
@@ -158,7 +158,7 @@ export default function AdminDashboardPage({ onNavigate }) {
   const handleDeleteInquiry = async (id) => {
     if (!window.confirm('Delete this collaboration inquiry?')) return;
     try {
-      await deleteCollaborationInquiry(id, token);
+      await deleteCollaborationInquiry(id);
       setInquiries((prev) => prev.filter((item) => item.inquiryId !== id));
       if (selectedInquiry && selectedInquiry.inquiryId === id) {
         setSelectedInquiry(null);
@@ -172,32 +172,13 @@ export default function AdminDashboardPage({ onNavigate }) {
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setAuthError('');
-    setAuthLoading(true);
+    setLoginLoading(true);
     try {
       await login({ email: authEmail, password: authPassword });
     } catch (err) {
       setAuthError(err.message || 'Invalid credentials');
     } finally {
-      setAuthLoading(false);
-    }
-  };
-
-  const handleQuickChiragLogin = async () => {
-    setAuthError('');
-    setAuthLoading(true);
-    try {
-      await login({
-        email: 'chiragackerman1112@gmail.com',
-        googleUser: {
-          name: 'Chirag Ackerman',
-          email: 'chiragackerman1112@gmail.com',
-          isAdmin: true
-        }
-      });
-    } catch (err) {
-      setAuthError(err.message || 'Login error');
-    } finally {
-      setAuthLoading(false);
+      setLoginLoading(false);
     }
   };
 
@@ -216,6 +197,7 @@ export default function AdminDashboardPage({ onNavigate }) {
       platform: 'Amazon',
       storeName: 'Amazon India',
       affiliateUrl: '',
+      couponCode: '',
       price: '',
       currency: '₹',
       originalPrice: '',
@@ -250,6 +232,7 @@ export default function AdminDashboardPage({ onNavigate }) {
       platform: prod.platform || 'Amazon',
       storeName: prod.storeName || 'Amazon India',
       affiliateUrl: prod.affiliateUrl || '',
+      couponCode: prod.couponCode || '',
       price: prod.price !== null && prod.price !== undefined ? prod.price : '',
       currency: prod.currency || '₹',
       originalPrice: prod.originalPrice || '',
@@ -350,7 +333,7 @@ export default function AdminDashboardPage({ onNavigate }) {
           dataUrl: reader.result,
           fileName: file.name,
           mimeType: file.type
-        }, token);
+        });
 
         const hostedUrl = uploadRes.url || uploadRes.imageUrl;
         setUploadedFileInfo((prev) => ({
@@ -495,6 +478,7 @@ export default function AdminDashboardPage({ onNavigate }) {
       platform: productFormData.platform,
       storeName: productFormData.storeName,
       affiliateUrl: productFormData.affiliateUrl.trim(),
+      couponCode: productFormData.couponCode.trim(),
       price: productFormData.price !== '' ? Number(productFormData.price) : null,
       currency: productFormData.currency || '₹',
       originalPrice: productFormData.originalPrice !== '' ? Number(productFormData.originalPrice) : null,
@@ -507,9 +491,9 @@ export default function AdminDashboardPage({ onNavigate }) {
     setProductFormLoading(true);
     try {
       if (editingProduct) {
-        await updateProduct(editingProduct.id, payload, token);
+        await updateProduct(editingProduct.id, payload);
       } else {
-        await createProduct(payload, token);
+        await createProduct(payload);
       }
       await refreshData();
       setIsProductModalOpen(false);
@@ -523,7 +507,7 @@ export default function AdminDashboardPage({ onNavigate }) {
   const handleDeleteProduct = async (id) => {
     if (!confirm('Are you sure you want to delete this product?')) return;
     try {
-      await deleteProduct(id, token);
+      await deleteProduct(id);
       await refreshData();
     } catch (err) {
       alert(err.message || 'Failed to delete');
@@ -532,7 +516,7 @@ export default function AdminDashboardPage({ onNavigate }) {
 
   const handleTogglePublish = async (prod) => {
     try {
-      await updateProduct(prod.id, { published: !prod.published }, token);
+      await updateProduct(prod.id, { published: !prod.published });
       await refreshData();
     } catch (err) {
       alert(err.message);
@@ -541,7 +525,7 @@ export default function AdminDashboardPage({ onNavigate }) {
 
   const handleToggleFeatured = async (prod) => {
     try {
-      await updateProduct(prod.id, { featured: !prod.featured }, token);
+      await updateProduct(prod.id, { featured: !prod.featured });
       await refreshData();
     } catch (err) {
       alert(err.message);
@@ -552,13 +536,21 @@ export default function AdminDashboardPage({ onNavigate }) {
   const handleSaveSettings = async (e) => {
     e.preventDefault();
     try {
-      await updateConfig(settingsForm, token);
+      await updateConfig(settingsForm);
       setSettingsSaved(true);
       setTimeout(() => setSettingsSaved(false), 3000);
     } catch (err) {
       alert(err.message || 'Failed to save site settings');
     }
   };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-[85vh] flex items-center justify-center px-4 pt-24 pb-16">
+        <Loader2 className="w-8 h-8 text-purple-300 animate-spin" aria-label="Checking authentication" />
+      </div>
+    );
+  }
 
   // If not authenticated, render Login Screen
   if (!isAuthenticated) {
@@ -583,21 +575,6 @@ export default function AdminDashboardPage({ onNavigate }) {
               <span>{authError}</span>
             </div>
           )}
-
-          {/* Quick Sign-In for Chirag / Evaluator */}
-          <div className="space-y-3">
-            <button
-              onClick={handleQuickChiragLogin}
-              disabled={authLoading}
-              className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white font-bold text-xs tracking-wider uppercase transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-purple-900/40"
-            >
-              <Sparkles className="w-4 h-4 text-purple-200" />
-              <span>Sign in as Chirag Ackerman (1-Click Google Auth)</span>
-            </button>
-            <p className="text-[11px] text-center text-[#A8A0B8]/70">
-              Verified for chiragackerman1112@gmail.com
-            </p>
-          </div>
 
           <div className="relative flex items-center justify-center">
             <span className="h-px bg-purple-900/40 w-full" />
@@ -628,7 +605,7 @@ export default function AdminDashboardPage({ onNavigate }) {
               <input
                 type="password"
                 required
-                placeholder="Enter password (e.g. Ackerman@2026 or admin123)"
+                placeholder="Enter your password"
                 value={authPassword}
                 onChange={(e) => setAuthPassword(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-xl bg-[#0B0710] border border-purple-500/20 text-white text-xs focus:outline-none focus:border-purple-400"
@@ -637,10 +614,10 @@ export default function AdminDashboardPage({ onNavigate }) {
 
             <button
               type="submit"
-              disabled={authLoading}
+              disabled={loginLoading}
               className="w-full py-3 rounded-xl bg-[#171020] hover:bg-purple-950/50 border border-purple-500/25 text-purple-200 font-semibold text-xs transition-colors cursor-pointer"
             >
-              {authLoading ? 'Verifying...' : 'Login with Credentials'}
+              {loginLoading ? 'Verifying...' : 'Login with Credentials'}
             </button>
           </form>
         </div>
@@ -1462,6 +1439,22 @@ export default function AdminDashboardPage({ onNavigate }) {
                   placeholder="https://amazon.in/dp/... or https://brand.com/affiliate-link"
                   className="w-full px-3.5 py-2.5 rounded-xl bg-[#0B0710] border border-purple-500/20 text-white text-xs focus:outline-none focus:border-purple-400 font-mono"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-[#A8A0B8] mb-1">
+                  Coupon Code (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={productFormData.couponCode}
+                  onChange={(e) => setProductFormData({ ...productFormData, couponCode: e.target.value })}
+                  placeholder="Enter coupon code (optional)"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#0B0710] border border-purple-500/20 text-white text-xs focus:outline-none focus:border-purple-400 font-mono"
+                />
+                <p className="mt-1 text-[11px] text-[#A8A0B8]">
+                  Leave blank if this product has no coupon code.
+                </p>
               </div>
 
               {/* PRODUCT IMAGE: TWO INPUT OPTIONS */}

@@ -1,22 +1,81 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import { dbService } from '../services/dbService.js';
 import { uploadImage, isCloudinaryConfigured } from '../services/uploadService.js';
+import {
+  createAdminSession,
+  destroyAdminSession,
+  findAdminSession,
+  getAuthConfig,
+  getSessionCookieOptions,
+  publicAdmin,
+  verifyAdminCredentials
+} from '../services/authService.js';
 
 const router = express.Router();
 
-// Middleware: Simple Admin verification check
-// Supports Bearer token or Admin header
-function requireAdmin(req, res, next) {
-  const authHeader = req.headers.authorization || req.headers['x-admin-key'];
-  if (!authHeader) {
-    return res.status(401).json({ error: 'Unauthorized: Admin authentication required' });
+const loginAttempts = new Map();
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+
+function requireDatabase(req, res, next) {
+  if (mongoose.connection.readyState !== 1) {
+    return res.status(503).json({ error: 'Authentication service is unavailable' });
   }
-  // Allow demo token or verified JWT/session token
   next();
 }
 
+async function requireAdmin(req, res, next) {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ error: 'Authentication service is unavailable' });
+    }
+    const session = await findAdminSession(req);
+    if (!session) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    req.admin = session.admin;
+    next();
+  } catch (err) {
+    console.error('Admin session validation failed:', err.message);
+    res.status(401).json({ error: 'Unauthorized' });
+  }
+}
+
+function requireSameOrigin(req, res, next) {
+  const origin = req.get('origin');
+  if (!origin) return next();
+
+  try {
+    const originUrl = new URL(origin);
+    const expectedHost = req.get('host');
+    if (originUrl.host !== expectedHost || !['http:', 'https:'].includes(originUrl.protocol)) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+  } catch {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  next();
+}
+
+function isRateLimited(ip) {
+  const now = Date.now();
+  const entry = loginAttempts.get(ip);
+  if (!entry || entry.resetAt <= now) {
+    loginAttempts.set(ip, { count: 0, resetAt: now + LOGIN_WINDOW_MS });
+    return false;
+  }
+  return entry.count >= MAX_LOGIN_ATTEMPTS;
+}
+
+function recordFailedLogin(ip) {
+  const entry = loginAttempts.get(ip) || { count: 0, resetAt: Date.now() + LOGIN_WINDOW_MS };
+  entry.count += 1;
+  loginAttempts.set(ip, entry);
+}
+
 // ---------------- IMAGE UPLOAD ----------------
-router.post('/upload/image', requireAdmin, async (req, res) => {
+router.post('/upload/image', requireAdmin, requireSameOrigin, async (req, res) => {
   try {
     const { dataUrl, fileName, mimeType } = req.body;
     if (!dataUrl) {
@@ -80,7 +139,7 @@ router.get('/products/:id', async (req, res) => {
   }
 });
 
-router.post('/products', requireAdmin, async (req, res) => {
+router.post('/products', requireAdmin, requireSameOrigin, async (req, res) => {
   try {
     const { name, brand, affiliateUrl, category } = req.body;
     if (!name || !brand || !affiliateUrl || !category) {
@@ -94,14 +153,17 @@ router.post('/products', requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'Invalid affiliate URL format' });
     }
 
-    const created = await dbService.createProduct(req.body);
+    const created = await dbService.createProduct({
+      ...req.body,
+      couponCode: typeof req.body.couponCode === 'string' ? req.body.couponCode.trim() : ''
+    });
     res.status(201).json(created);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-router.put('/products/:id', requireAdmin, async (req, res) => {
+router.put('/products/:id', requireAdmin, requireSameOrigin, async (req, res) => {
   try {
     if (req.body.affiliateUrl) {
       try {
@@ -110,7 +172,12 @@ router.put('/products/:id', requireAdmin, async (req, res) => {
         return res.status(400).json({ error: 'Invalid affiliate URL format' });
       }
     }
-    const updated = await dbService.updateProduct(req.params.id, req.body);
+    const updated = await dbService.updateProduct(req.params.id, {
+      ...req.body,
+      ...(Object.prototype.hasOwnProperty.call(req.body, 'couponCode')
+        ? { couponCode: typeof req.body.couponCode === 'string' ? req.body.couponCode.trim() : '' }
+        : {})
+    });
     if (!updated) return res.status(404).json({ error: 'Product not found' });
     res.json(updated);
   } catch (err) {
@@ -118,7 +185,7 @@ router.put('/products/:id', requireAdmin, async (req, res) => {
   }
 });
 
-router.delete('/products/:id', requireAdmin, async (req, res) => {
+router.delete('/products/:id', requireAdmin, requireSameOrigin, async (req, res) => {
   try {
     const deleted = await dbService.deleteProduct(req.params.id);
     if (!deleted) return res.status(404).json({ error: 'Product not found' });
@@ -138,7 +205,7 @@ router.get('/categories', async (req, res) => {
   }
 });
 
-router.post('/categories', requireAdmin, async (req, res) => {
+router.post('/categories', requireAdmin, requireSameOrigin, async (req, res) => {
   try {
     const { name } = req.body;
     if (!name) return res.status(400).json({ error: 'Category name is required' });
@@ -159,7 +226,7 @@ router.get('/stores', async (req, res) => {
   }
 });
 
-router.post('/stores', requireAdmin, async (req, res) => {
+router.post('/stores', requireAdmin, requireSameOrigin, async (req, res) => {
   try {
     const { name, url } = req.body;
     if (!name || !url) return res.status(400).json({ error: 'Name and URL are required' });
@@ -180,7 +247,7 @@ router.get('/settings', async (req, res) => {
   }
 });
 
-router.put('/settings', requireAdmin, async (req, res) => {
+router.put('/settings', requireAdmin, requireSameOrigin, async (req, res) => {
   try {
     const updated = await dbService.updateSiteConfig(req.body);
     res.json(updated);
@@ -222,43 +289,45 @@ router.get('/analytics', requireAdmin, async (req, res) => {
 });
 
 // ---------------- AUTHENTICATION ----------------
-router.post('/auth/login', async (req, res) => {
+router.post('/auth/login', requireDatabase, requireSameOrigin, async (req, res) => {
   try {
-    const { email, password, googleUser } = req.body;
+    const config = getAuthConfig();
+    if (!config.valid) return res.status(503).json({ error: 'Authentication service is unavailable' });
+    if (isRateLimited(req.ip)) return res.status(429).json({ error: 'Too many login attempts. Try again later.' });
 
-    // Support Google OAuth verified user or password login for Chirag Ackerman admin
-    if (googleUser && googleUser.email) {
-      const allowedAdminEmails = ['chiragackerman1112@gmail.com', 'admin@chiragackerman.dev'];
-      const isAdmin = allowedAdminEmails.includes(googleUser.email.toLowerCase()) || googleUser.isAdmin;
-      return res.json({
-        success: true,
-        token: 'ackerman_auth_' + Date.now().toString(36),
-        user: {
-          name: googleUser.name || 'Chirag Ackerman',
-          email: googleUser.email,
-          role: isAdmin ? 'superadmin' : 'viewer',
-          avatar: googleUser.picture || null
-        }
-      });
+    const { email, password } = req.body || {};
+    const admin = await verifyAdminCredentials(email, password);
+    if (!admin) {
+      recordFailedLogin(req.ip);
+      return res.status(401).json({ error: 'Invalid credentials or unauthorized account.' });
     }
 
-    // Direct password access for site owner
-    if (password === 'Ackerman@2026' || password === 'admin123' || (email && email.toLowerCase() === 'chiragackerman1112@gmail.com')) {
-      return res.json({
-        success: true,
-        token: 'ackerman_auth_' + Date.now().toString(36),
-        user: {
-          name: 'Chirag Ackerman',
-          email: email || 'chiragackerman1112@gmail.com',
-          role: 'superadmin'
-        }
-      });
-    }
-
-    res.status(401).json({ error: 'Invalid credentials. Please use registered admin credentials or Google Sign-In.' });
+    loginAttempts.delete(req.ip);
+    const { cookie, expiresAt } = await createAdminSession(admin);
+    admin.lastLogin = new Date();
+    await admin.save();
+    res.setHeader('Set-Cookie', cookie);
+    res.json({ success: true, user: publicAdmin(admin), expiresAt });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Admin login failed:', err.message);
+    res.status(500).json({ error: 'Authentication failed' });
   }
+});
+
+router.get('/auth/session', requireDatabase, async (req, res) => {
+  try {
+    const session = await findAdminSession(req);
+    if (!session) return res.status(401).json({ error: 'Unauthorized' });
+    res.json({ authenticated: true, user: publicAdmin(session.admin), expiresAt: session.session.expiresAt });
+  } catch {
+    res.status(401).json({ error: 'Unauthorized' });
+  }
+});
+
+router.post('/auth/logout', requireDatabase, requireSameOrigin, async (req, res) => {
+  await destroyAdminSession(req);
+  res.setHeader('Set-Cookie', getSessionCookieOptions());
+  res.json({ success: true });
 });
 
 // ---------------- CONTACT & COLLABORATION ----------------
@@ -331,7 +400,7 @@ router.get('/collaborate/:id', requireAdmin, async (req, res) => {
   }
 });
 
-router.patch('/collaborate/:id/status', requireAdmin, async (req, res) => {
+router.patch('/collaborate/:id/status', requireAdmin, requireSameOrigin, async (req, res) => {
   try {
     const { status } = req.body;
     if (!status) {
@@ -349,7 +418,7 @@ router.patch('/collaborate/:id/status', requireAdmin, async (req, res) => {
   }
 });
 
-router.delete('/collaborate/:id', requireAdmin, async (req, res) => {
+router.delete('/collaborate/:id', requireAdmin, requireSameOrigin, async (req, res) => {
   try {
     const deleted = await dbService.deleteCollaborationInquiry(req.params.id);
     if (!deleted) {

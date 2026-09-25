@@ -52,6 +52,13 @@ export default function ProductCard({ product, onSelectProduct }) {
           </div>
         )}
 
+        {product.couponCode?.trim() && (
+          <div className="absolute top-3 right-3 inline-flex items-center gap-1 text-[10px] font-semibold tracking-wider text-emerald-100 bg-purple-950/90 backdrop-blur-md px-2 py-1 rounded-md border border-purple-400/30">
+            <Tag className="w-3 h-3 text-purple-300" />
+            <span>COUPON AVAILABLE</span>
+          </div>
+        )}
+
         {/* Platform/Store badge */}
         <div className="absolute bottom-3 right-3 text-[11px] font-medium text-white/90 bg-[#070509]/80 backdrop-blur-md px-2 py-0.5 rounded border border-white/10">
           {product.storeName || product.platform || 'Retailer'}

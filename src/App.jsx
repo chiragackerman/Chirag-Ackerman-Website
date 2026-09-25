@@ -31,7 +31,8 @@ export default function App() {
         setSelectedProductId(pId);
         setActiveRoute('product');
       } else if (hash.startsWith('category/')) {
-        const cat = hash.replace('category/', '');
+        const rawCategory = hash.replace('category/', '');
+        const cat = rawCategory === 'monitors' ? 'collectibles-decor' : rawCategory;
         setSelectedCategorySlug(cat);
         setActiveRoute('shop');
       } else {
@@ -50,8 +51,9 @@ export default function App() {
       window.location.hash = `product/${param}`;
       setActiveRoute('product');
     } else if (route === 'shop' && param) {
-      setSelectedCategorySlug(param);
-      window.location.hash = `category/${param}`;
+      const categorySlug = param === 'monitors' ? 'collectibles-decor' : param;
+      setSelectedCategorySlug(categorySlug);
+      window.location.hash = `category/${categorySlug}`;
       setActiveRoute('shop');
     } else {
       window.location.hash = route;

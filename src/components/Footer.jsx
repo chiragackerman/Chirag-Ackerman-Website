@@ -128,9 +128,16 @@ export default function Footer({ onNavigate }) {
 
         {/* Bottom bar */}
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#A8A0B8]">
-          <p>© 2026 {siteConfig.creatorName}. All rights reserved.</p>
-          <p className="text-purple-400/80 font-mono text-[11px]">
-            Built with code, creativity &amp; caffeine.
+          <p className='text-[14px]'>© 2026 {siteConfig.creatorName}. All rights reserved.</p>
+          <p className="text-purple-400/80 text-[14px] flex gap-1 text-center sm:text-right">
+            Designed &amp; developed by <span className="text-purple-300 font-medium"> Chirag S</span>
+            <span className="mx-1.5 text-purple-600" aria-hidden="true">·</span>
+            <a
+              href="mailto:chiragackerman1112@gmail.com"
+              className="text-purple-300 hover:text-purple-100 transition-colors"
+            >
+              Let&apos;s work together <span aria-hidden="true">→</span>
+            </a>
           </p>
         </div>
       </div>

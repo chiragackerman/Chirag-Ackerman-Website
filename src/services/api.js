@@ -50,9 +50,9 @@ export async function fetchProductById(id) {
 export async function uploadProductImage({ dataUrl, fileName, mimeType }, token) {
   const res = await fetch(`${API_BASE}/upload/image`, {
     method: 'POST',
+    credentials: 'include',
     headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
+      'Content-Type': 'application/json'
     },
     body: JSON.stringify({ dataUrl, fileName, mimeType })
   });
@@ -66,9 +66,9 @@ export async function uploadProductImage({ dataUrl, fileName, mimeType }, token)
 export async function createProduct(productData, token) {
   const res = await fetch(`${API_BASE}/products`, {
     method: 'POST',
+    credentials: 'include',
     headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
+      'Content-Type': 'application/json'
     },
     body: JSON.stringify(productData)
   });
@@ -82,9 +82,9 @@ export async function createProduct(productData, token) {
 export async function updateProduct(id, productData, token) {
   const res = await fetch(`${API_BASE}/products/${id}`, {
     method: 'PUT',
+    credentials: 'include',
     headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
+      'Content-Type': 'application/json'
     },
     body: JSON.stringify(productData)
   });
@@ -98,9 +98,7 @@ export async function updateProduct(id, productData, token) {
 export async function deleteProduct(id, token) {
   const res = await fetch(`${API_BASE}/products/${id}`, {
     method: 'DELETE',
-    headers: {
-      'Authorization': `Bearer ${token}`
-    }
+    credentials: 'include'
   });
   if (!res.ok) {
     const err = await res.json();
@@ -142,9 +140,9 @@ export async function fetchSiteConfig() {
 export async function saveSiteConfig(config, token) {
   const res = await fetch(`${API_BASE}/settings`, {
     method: 'PUT',
+    credentials: 'include',
     headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
+      'Content-Type': 'application/json'
     },
     body: JSON.stringify(config)
   });
@@ -184,9 +182,7 @@ export async function recordOutboundClick(product, storeName, affiliateUrl) {
 
 export async function fetchAnalytics(token) {
   const res = await fetch(`${API_BASE}/analytics`, {
-    headers: {
-      'Authorization': `Bearer ${token}`
-    }
+    credentials: 'include'
   });
   if (!res.ok) throw new Error('Failed to fetch analytics');
   return await res.json();
@@ -195,6 +191,7 @@ export async function fetchAnalytics(token) {
 export async function loginAdmin(credentials) {
   const res = await fetch(`${API_BASE}/auth/login`, {
     method: 'POST',
+    credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(credentials)
   });
@@ -203,6 +200,20 @@ export async function loginAdmin(credentials) {
     throw new Error(err.error || 'Login failed');
   }
   return await res.json();
+}
+
+export async function fetchAdminSession() {
+  const res = await fetch(`${API_BASE}/auth/session`, { credentials: 'include' });
+  if (!res.ok) return null;
+  return await res.json();
+}
+
+export async function logoutAdmin() {
+  const res = await fetch(`${API_BASE}/auth/logout`, {
+    method: 'POST',
+    credentials: 'include'
+  });
+  if (!res.ok) throw new Error('Logout failed');
 }
 
 export async function submitCollab(data) {
@@ -220,9 +231,7 @@ export async function submitCollab(data) {
 
 export async function fetchCollaborationInquiries(token) {
   const res = await fetch(`${API_BASE}/collaborate`, {
-    headers: {
-      'Authorization': `Bearer ${token}`
-    }
+    credentials: 'include'
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -234,9 +243,9 @@ export async function fetchCollaborationInquiries(token) {
 export async function updateCollaborationInquiryStatus(id, status, token) {
   const res = await fetch(`${API_BASE}/collaborate/${id}/status`, {
     method: 'PATCH',
+    credentials: 'include',
     headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
+      'Content-Type': 'application/json'
     },
     body: JSON.stringify({ status })
   });
@@ -250,9 +259,7 @@ export async function updateCollaborationInquiryStatus(id, status, token) {
 export async function deleteCollaborationInquiry(id, token) {
   const res = await fetch(`${API_BASE}/collaborate/${id}`, {
     method: 'DELETE',
-    headers: {
-      'Authorization': `Bearer ${token}`
-    }
+    credentials: 'include'
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));

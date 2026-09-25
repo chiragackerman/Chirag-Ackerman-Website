@@ -42,7 +42,7 @@ export default function AboutPage({ onNavigate }) {
           </div>
 
           <p className="text-base sm:text-lg text-[#F5F3FF] leading-relaxed">
-            I'm Chirag Ackerman, an independent creator and developer based in Navi Mumbai. My work lives at the intersection of competitive PC gaming, software development, and aesthetic tech hardware.
+            I'm Chirag S, an independent creator and developer based in Navi Mumbai. My work lives at the intersection of competitive PC gaming, software development, and aesthetic tech hardware.
           </p>
 
           <p className="text-sm text-[#A8A0B8] leading-relaxed">

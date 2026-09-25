@@ -9,6 +9,7 @@ import { Store } from '../models/Store.js';
 import { Click } from '../models/Click.js';
 import { SiteSetting } from '../models/SiteSetting.js';
 import { CollaborationInquiry } from '../models/CollaborationInquiry.js';
+import { ensureAdminAccount, getAuthConfig } from './authService.js';
 
 let isMongoConnected = false;
 
@@ -63,6 +64,14 @@ export async function initDatabase() {
       isMongoConnected = true;
       console.log('Connected to MongoDB successfully.');
       await seedMongoIfEmpty();
+      await migrateMonitorCategory();
+      const authConfig = await ensureAdminAccount();
+      if (!authConfig.valid) {
+        const details = authConfig.missing?.length
+          ? `Missing server-side environment variables: ${authConfig.missing.join(', ')}`
+          : authConfig.error;
+        console.warn(`Admin authentication is unavailable. ${details}`);
+      }
       return;
     } catch (err) {
       console.warn('MongoDB connection failed. Operating in high-reliability memory storage mode:', err.message);
@@ -71,6 +80,35 @@ export async function initDatabase() {
   } else {
     console.log('No MONGODB_URI provided in environment. Operating in memory repository mode.');
   }
+
+  const authConfig = getAuthConfig();
+  if (!authConfig.valid) {
+    const details = authConfig.missing?.length
+      ? `Missing server-side environment variables: ${authConfig.missing.join(', ')}`
+      : authConfig.error;
+    console.warn(`Admin authentication is unavailable. ${details}`);
+  }
+}
+
+async function migrateMonitorCategory() {
+  const monitorProductCount = await Product.countDocuments({ category: 'monitors' });
+  if (monitorProductCount > 0) {
+    console.warn(`Skipped Monitors category migration because ${monitorProductCount} product(s) still use it.`);
+    return;
+  }
+
+  await Category.updateMany(
+    { $or: [{ id: 'monitors' }, { slug: 'monitors' }, { name: 'Monitors' }] },
+    {
+      $set: {
+        id: 'collectibles-decor',
+        name: 'Collectibles & Decor',
+        slug: 'collectibles-decor',
+        description: 'Posters, anime collectibles, action figures, keychains, and display pieces for expressive spaces.',
+        iconName: 'Gift'
+      }
+    }
+  );
 }
 
 async function seedMongoIfEmpty() {
