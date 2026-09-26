@@ -1,33 +1,17 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import SetupItem from '../components/SetupItem.jsx';
 import AffiliateDisclosure from '../components/AffiliateDisclosure.jsx';
 import SEOHead from '../components/SEOHead.jsx';
-import { fetchSetupProducts } from '../services/api.js';
+import { useSite } from '../context/SiteContext.jsx';
 import { setupTourTags } from '../data/setupTourTags.js';
 import { Monitor, Compass, Sparkles, SlidersHorizontal } from 'lucide-react';
 
 export default function MySetupPage({ onSelectProduct, onNavigate }) {
-  const [setupProducts, setSetupProducts] = useState([]);
+  const { products } = useSite();
   const [activeFilter, setActiveFilter] = useState('all');
 
-  useEffect(() => {
-    let active = true;
-    fetchSetupProducts()
-      .then((data) => {
-        if (active) setSetupProducts(data);
-      })
-      .catch((error) => {
-        console.warn('My Setup products could not be loaded:', error.message);
-        if (active) setSetupProducts([]);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
   const setupCategories = ['all', ...setupTourTags];
-  const orderedSetupProducts = setupProducts
+  const orderedSetupProducts = products
     .filter((product) => product.showInMySetup === true)
     .sort((a, b) => (a.setupOrder ?? Number.MAX_SAFE_INTEGER) - (b.setupOrder ?? Number.MAX_SAFE_INTEGER));
   const setupItems = setupTourTags.flatMap((category) =>

@@ -45,12 +45,12 @@ export default function AboutPage({ onNavigate }) {
             ABOUT CHIRAG
           </h1>
 
-          <div className="flex items-center gap-3 text-xs uppercase font-medium text-purple-300">
+          <div className="flex flex-col items-start gap-1 text-xs uppercase font-medium text-purple-300 sm:flex-row sm:items-center sm:gap-3">
             <span className="flex items-center gap-1">
               <MapPin className="w-3.5 h-3.5 text-purple-400" />
               {siteConfig.location || 'Navi Mumbai, Maharashtra, India'}
             </span>
-            <span>·</span>
+            <span className="hidden sm:inline">·</span>
             <span>Gaming • Coding • Tech</span>
           </div>
 
@@ -85,8 +85,8 @@ export default function AboutPage({ onNavigate }) {
 
         {/* Right side portrait/workspace showcase */}
         <div className="lg:col-span-5">
-          <div className="relative rounded-2xl overflow-hidden border border-purple-500/20 bg-[#120D1A] purple-glow">
-            <div className="aspect-[4/5] w-full overflow-hidden">
+          <div className="relative mx-auto w-full max-w-[20rem] rounded-2xl overflow-hidden border border-purple-500/20 bg-[#120D1A] purple-glow sm:max-w-[26rem] lg:max-w-[60svh]">
+            <div className="aspect-4/5 w-full overflow-hidden">
               <img
                 src={logoImage}
                 alt="Chirag Ackerman Workspace & Studio"
