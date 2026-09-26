@@ -8,8 +8,10 @@ import {
   recordOutboundClick
 } from '../services/api.js';
 import { defaultSiteConfig } from '../data/defaultSiteConfig.js';
+import { initialCategories } from '../data/initialCategories.js';
 
 const SiteContext = createContext(null);
+const categoryOrder = new Map(initialCategories.map((category, index) => [category.slug || category.id, index]));
 
 export function SiteProvider({ children }) {
   const [siteConfig, setSiteConfig] = useState(defaultSiteConfig);
@@ -28,7 +30,10 @@ export function SiteProvider({ children }) {
       ]);
       setSiteConfig(configData || defaultSiteConfig);
       setProducts(prodsData || []);
-      setCategories(catsData || []);
+      setCategories([...(catsData || [])].sort((a, b) =>
+        (categoryOrder.get(a.slug || a.id) ?? Number.MAX_SAFE_INTEGER) -
+        (categoryOrder.get(b.slug || b.id) ?? Number.MAX_SAFE_INTEGER)
+      ));
       setStores(storesData || []);
     } catch (err) {
       console.error('Error loading initial site data:', err);

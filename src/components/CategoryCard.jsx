@@ -7,7 +7,7 @@ import {
   Layers,
   SunMedium,
   Laptop,
-  Code2,
+  Monitor,
   Camera,
   ArrowRight
 } from 'lucide-react';
@@ -20,17 +20,17 @@ const iconMap = {
   Layers: Layers,
   SunMedium: SunMedium,
   Laptop: Laptop,
-  Code2: Code2,
+  Monitor: Monitor,
   Camera: Camera
 };
 
-export default function CategoryCard({ category, onSelectCategory }) {
+export default function CategoryCard({ category, onSelectCategory, className = '' }) {
   const IconComponent = iconMap[category.iconName] || Layers;
 
   return (
     <div
       onClick={() => onSelectCategory(category.slug || category.id)}
-      className="group relative flex flex-col justify-between p-6 rounded-2xl bg-[#120D1A] border border-purple-500/15 hover:border-purple-400/50 hover:bg-[#171020] transition-all duration-300 hover:-translate-y-1 purple-glow-card cursor-pointer"
+      className={`group relative flex flex-col justify-between p-6 rounded-2xl bg-[#120D1A] border border-purple-500/15 hover:border-purple-400/50 hover:bg-[#171020] transition-all duration-300 hover:-translate-y-1 purple-glow-card cursor-pointer ${className}`}
     >
       <div className="space-y-4">
         {/* Category Icon */}

@@ -20,7 +20,7 @@ export default function MySetupPage({ onSelectProduct, onNavigate }) {
     'Lighting',
     'Laptop Accessories',
     'Creator Gear',
-    'Coding Gear'
+    'Setup & Workspace'
   ];
 
   const setupItems = initialSetupItems.map((item) => {

@@ -65,6 +65,7 @@ export async function initDatabase() {
       console.log('Connected to MongoDB successfully.');
       await seedMongoIfEmpty();
       await migrateMonitorCategory();
+      await migrateCategoryOrderAndCodingGear();
       const authConfig = await ensureAdminAccount();
       if (!authConfig.valid) {
         const details = authConfig.missing?.length
@@ -108,6 +109,31 @@ async function migrateMonitorCategory() {
         iconName: 'Gift'
       }
     }
+  );
+}
+
+async function migrateCategoryOrderAndCodingGear() {
+  for (const category of initialCategories) {
+    const isWorkspaceCategory = category.id === 'setup-workspace';
+    const aliases = isWorkspaceCategory
+      ? ['setup-workspace', 'coding-gear', 'Setup & Workspace', 'Coding Gear']
+      : [category.id, category.slug, category.name];
+    const { order, ...categoryFields } = category;
+    const updates = {
+      $set: { order, ...(isWorkspaceCategory ? categoryFields : {}) },
+      ...(!isWorkspaceCategory ? { $setOnInsert: categoryFields } : {})
+    };
+
+    await Category.updateOne(
+      { $or: [{ id: { $in: aliases } }, { slug: { $in: aliases } }, { name: { $in: aliases } }] },
+      updates,
+      { upsert: true }
+    );
+  }
+
+  await Product.updateMany(
+    { category: { $in: ['coding-gear', 'Coding Gear'] } },
+    { $set: { category: 'setup-workspace', categoryName: 'Setup & Workspace' } }
   );
 }
 
@@ -240,14 +266,18 @@ export const dbService = {
   // Categories
   async getCategories() {
     if (isMongoConnected) {
-      return await Category.find();
+      return await Category.find().sort({ order: 1, _id: 1 });
     }
     return memoryStore.categories;
   },
 
   async createCategory(cat) {
     const id = cat.slug || cat.name.toLowerCase().replace(/\s+/g, '-');
-    const newCat = { ...cat, id, slug: id };
+    const currentCategories = isMongoConnected
+      ? await Category.find().select('order').lean()
+      : memoryStore.categories;
+    const nextOrder = currentCategories.reduce((maxOrder, category) => Math.max(maxOrder, category.order || 0), 0) + 1;
+    const newCat = { ...cat, id, slug: id, order: cat.order ?? nextOrder };
     if (isMongoConnected) {
       return await Category.create(newCat);
     }

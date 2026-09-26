@@ -93,8 +93,8 @@ export const initialSetupItems = [
     affiliateUrl: "https://www.amazon.in/s?k=broadcast+microphone+boom+arm"
   },
   {
-    id: "setup-coding-gear",
-    category: "Coding Gear",
+    id: "setup-workspace-shortcuts",
+    category: "Setup & Workspace",
     itemTitle: "Workflow Shortcuts & Productivity Keys",
     productName: "Programmable Macro Pad & Split Ergonomics",
     image: keyboardImg,

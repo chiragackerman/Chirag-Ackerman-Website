@@ -22,12 +22,12 @@ export default function CategoriesPage({ onSelectCategory, onNavigate }) {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 auto-rows-fr gap-6">
         {categories.map((cat) => {
           const count = products.filter((p) => p.category === (cat.slug || cat.id) && p.published).length;
           return (
             <div key={cat.slug || cat.id} className="relative">
-              <CategoryCard category={cat} onSelectCategory={onSelectCategory} />
+              <CategoryCard category={cat} onSelectCategory={onSelectCategory} className="h-full" />
               {count > 0 && (
                 <div className="absolute top-4 right-4 text-[11px] font-mono font-medium text-purple-300 bg-purple-950/60 px-2 py-0.5 rounded border border-purple-500/20">
                   {count} {count === 1 ? 'item' : 'items'}
