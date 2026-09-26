@@ -11,7 +11,7 @@ import { ArrowRight, Sparkles, Monitor, Layers } from 'lucide-react';
 export default function HomePage({ onNavigate, onSelectProduct, onSelectCategory }) {
   const { products, categories, stores } = useSite();
 
-  const featuredProducts = products.filter((p) => p.featured && p.published).slice(0, 8);
+  const featuredProducts = products.filter((p) => p.featured && p.published).slice(0, 4);
   const displayCategories = categories.slice(0, 6);
 
   return (

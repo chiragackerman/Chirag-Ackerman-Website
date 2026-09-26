@@ -1,6 +1,7 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import { dbService } from '../services/dbService.js';
+import { setupTourTags } from '../../src/data/setupTourTags.js';
 import { uploadImage, isCloudinaryConfigured } from '../services/uploadService.js';
 import {
   createAdminSession,
@@ -17,6 +18,30 @@ const router = express.Router();
 const loginAttempts = new Map();
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+
+function validateSetupSettings(data, existing = {}) {
+  const hasShowInMySetup = Object.prototype.hasOwnProperty.call(data, 'showInMySetup');
+  const hasSetupTags = Object.prototype.hasOwnProperty.call(data, 'setupTags');
+  const showInMySetup = hasShowInMySetup ? data.showInMySetup : existing.showInMySetup === true;
+  const setupTags = hasSetupTags ? data.setupTags : existing.setupTags || [];
+
+  if (typeof showInMySetup !== 'boolean' || !Array.isArray(setupTags)) {
+    return { error: 'Invalid My Setup settings.' };
+  }
+  if (setupTags.some((tag) => !setupTourTags.includes(tag))) {
+    return { error: 'One or more Setup Tour Tags are invalid.' };
+  }
+  if (showInMySetup && setupTags.length === 0) {
+    return { error: 'Select at least one Setup Tour Tag to show this product in My Setup.' };
+  }
+
+  return {
+    settings: {
+      showInMySetup,
+      setupTags: showInMySetup ? [...new Set(setupTags)] : []
+    }
+  };
+}
 
 function requireDatabase(req, res, next) {
   if (mongoose.connection.readyState !== 1) {
@@ -107,10 +132,12 @@ router.get('/upload/status', requireAdmin, (req, res) => {
 router.get('/products', async (req, res) => {
   try {
     const { category, featured, search } = req.query;
+    const setupOnly = req.query.showInMySetup === 'true';
     const filters = {
       category,
       featured: featured === 'true',
       search,
+      showInMySetup: setupOnly,
       published: true
     };
     const products = await dbService.getProducts(filters);
@@ -153,8 +180,12 @@ router.post('/products', requireAdmin, requireSameOrigin, async (req, res) => {
       return res.status(400).json({ error: 'Invalid affiliate URL format' });
     }
 
+    const setupValidation = validateSetupSettings(req.body);
+    if (setupValidation.error) return res.status(400).json({ error: setupValidation.error });
+
     const created = await dbService.createProduct({
       ...req.body,
+      ...setupValidation.settings,
       couponCode: typeof req.body.couponCode === 'string' ? req.body.couponCode.trim() : ''
     });
     res.status(201).json(created);
@@ -172,8 +203,19 @@ router.put('/products/:id', requireAdmin, requireSameOrigin, async (req, res) =>
         return res.status(400).json({ error: 'Invalid affiliate URL format' });
       }
     }
+
+    let setupSettings = {};
+    if (Object.prototype.hasOwnProperty.call(req.body, 'showInMySetup') || Object.prototype.hasOwnProperty.call(req.body, 'setupTags')) {
+      const existing = await dbService.getProductById(req.params.id);
+      if (!existing) return res.status(404).json({ error: 'Product not found' });
+      const setupValidation = validateSetupSettings(req.body, existing);
+      if (setupValidation.error) return res.status(400).json({ error: setupValidation.error });
+      setupSettings = setupValidation.settings;
+    }
+
     const updated = await dbService.updateProduct(req.params.id, {
       ...req.body,
+      ...setupSettings,
       ...(Object.prototype.hasOwnProperty.call(req.body, 'couponCode')
         ? { couponCode: typeof req.body.couponCode === 'string' ? req.body.couponCode.trim() : '' }
         : {})

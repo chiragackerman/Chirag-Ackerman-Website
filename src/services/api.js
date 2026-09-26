@@ -36,6 +36,13 @@ export async function fetchProducts(filters = {}) {
   }
 }
 
+export async function fetchSetupProducts() {
+  const res = await fetch(`${API_BASE}/products?showInMySetup=true`);
+  if (!res.ok) throw new Error('Failed to fetch My Setup products');
+  const products = await res.json();
+  return Array.isArray(products) ? products.filter((product) => product.showInMySetup === true) : [];
+}
+
 export async function fetchProductById(id) {
   try {
     const res = await fetch(`${API_BASE}/products/${id}`);

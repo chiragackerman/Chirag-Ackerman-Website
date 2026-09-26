@@ -42,6 +42,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { formatPrice, formatDate } from '../utils/formatters.js';
+import { setupTourTags } from '../data/setupTourTags.js';
 
 export default function AdminDashboardPage({ onNavigate }) {
   const { adminUser, isAuthenticated, authLoading, login, logout } = useAuth();
@@ -91,6 +92,8 @@ export default function AdminDashboardPage({ onNavigate }) {
     originalPrice: '',
     featured: false,
     published: true,
+    showInMySetup: false,
+    setupTags: [],
     tagsString: '',
     specsString: ''
   });
@@ -203,6 +206,8 @@ export default function AdminDashboardPage({ onNavigate }) {
       originalPrice: '',
       featured: false,
       published: true,
+      showInMySetup: false,
+      setupTags: [],
       tagsString: '',
       specsString: ''
     });
@@ -238,6 +243,8 @@ export default function AdminDashboardPage({ onNavigate }) {
       originalPrice: prod.originalPrice || '',
       featured: !!prod.featured,
       published: prod.published !== false,
+      showInMySetup: prod.showInMySetup === true,
+      setupTags: prod.showInMySetup === true && Array.isArray(prod.setupTags) ? prod.setupTags : [],
       tagsString: prod.tags ? prod.tags.join(', ') : '',
       specsString: prod.specifications
         ? prod.specifications.map((s) => `${s.key}: ${s.value}`).join('\n')
@@ -420,6 +427,11 @@ export default function AdminDashboardPage({ onNavigate }) {
       return;
     }
 
+    if (productFormData.showInMySetup && productFormData.setupTags.length === 0) {
+      setProductFormError('Select at least one Setup Tour Tag to show this product in My Setup.');
+      return;
+    }
+
     try {
       new URL(productFormData.affiliateUrl);
     } catch {
@@ -484,6 +496,8 @@ export default function AdminDashboardPage({ onNavigate }) {
       originalPrice: productFormData.originalPrice !== '' ? Number(productFormData.originalPrice) : null,
       featured: productFormData.featured,
       published: productFormData.published,
+      showInMySetup: Boolean(productFormData.showInMySetup),
+      setupTags: productFormData.showInMySetup ? [...productFormData.setupTags] : [],
       tags,
       specifications
     };
@@ -1768,6 +1782,54 @@ export default function AdminDashboardPage({ onNavigate }) {
                   placeholder="Wireless, Ultralight, RGB, Tactical"
                   className="w-full px-3.5 py-2.5 rounded-xl bg-[#0B0710] border border-purple-500/20 text-white text-xs focus:outline-none focus:border-purple-400"
                 />
+              </div>
+
+              <div className="space-y-2 pt-2">
+                <label className="flex items-center gap-2 cursor-pointer text-xs text-white">
+                  <input
+                    type="checkbox"
+                    checked={productFormData.showInMySetup}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setProductFormData((prev) => ({
+                        ...prev,
+                        showInMySetup: checked,
+                        setupTags: checked ? prev.setupTags : []
+                      }));
+                    }}
+                    className="rounded bg-[#0B0710] border-purple-500/30 text-purple-600 focus:ring-0"
+                  />
+                  <span>Show in My Setup</span>
+                </label>
+                <p className="ml-6 text-[11px] text-[#A8A0B8]">
+                  Display this product in the My Setup virtual tour.
+                </p>
+
+                {productFormData.showInMySetup && (
+                  <fieldset className="ml-6 space-y-2">
+                    <legend className="block text-xs font-semibold uppercase tracking-wider text-[#A8A0B8]">
+                      Setup Tour Tags *
+                    </legend>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {setupTourTags.map((tag) => (
+                        <label key={tag} className="flex items-center gap-2 rounded-lg bg-[#0B0710] border border-purple-500/15 px-2.5 py-2 cursor-pointer text-[11px] text-white">
+                          <input
+                            type="checkbox"
+                            checked={productFormData.setupTags.includes(tag)}
+                            onChange={() => setProductFormData((prev) => ({
+                              ...prev,
+                              setupTags: prev.setupTags.includes(tag)
+                                ? prev.setupTags.filter((selectedTag) => selectedTag !== tag)
+                                : [...prev.setupTags, tag]
+                            }))}
+                            className="rounded bg-[#0B0710] border-purple-500/30 text-purple-600 focus:ring-0"
+                          />
+                          <span>{tag}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
+                )}
               </div>
 
               {/* Checkboxes: Featured & Published */}

@@ -73,7 +73,7 @@ export default function Navbar({ activeRoute, onNavigate }) {
                 key={link.route}
                 href={`#${link.route}`}
                 onClick={(e) => handleNav(link.route, e)}
-                className={`text-sm font-medium transition-colors relative py-1 ${
+                className={`text-sm w-fit font-medium transition-colors relative py-1 ${
                   isActive
                     ? 'text-white'
                     : 'text-[#A8A0B8] hover:text-white'

@@ -37,7 +37,7 @@ export default function Footer({ onNavigate }) {
             <p className="text-sm text-[#A8A0B8] max-w-md leading-relaxed">
               Minimalist desk aesthetics, performance peripherals, and real-world developer setups. Sharing the tools that fuel modern digital creation from Navi Mumbai, India.
             </p>
-            <div className="flex items-center gap-4 pt-2">
+            <div className="flex flex-wrap items-center gap-4 pt-2">
               <a
                 href={siteConfig.instagramUrl}
                 target="_blank"
@@ -129,9 +129,9 @@ export default function Footer({ onNavigate }) {
         {/* Bottom bar */}
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#A8A0B8]">
           <p className='text-[14px]'>© 2026 {siteConfig.creatorName}. All rights reserved.</p>
-          <p className="text-purple-400/80 text-[14px] flex gap-1 text-center sm:text-right">
-            Designed &amp; developed by <span className="text-purple-300 font-medium"> Chirag S</span>
-            <span className="mx-1.5 text-purple-600" aria-hidden="true">·</span>
+          <p className="text-purple-400/80 text-[14px] flex flex-col sm:flex-row items-center gap-1 text-center sm:text-right">
+            <span className="whitespace-nowrap">Designed &amp; developed by <span className="text-purple-300 font-medium">Chirag S</span></span>
+            <span className="hidden sm:inline mx-1.5 text-purple-600" aria-hidden="true">·</span>
             <a
               href="mailto:chiragackerman1112@gmail.com"
               className="text-purple-300 hover:text-purple-100 transition-colors"

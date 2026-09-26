@@ -1,45 +1,43 @@
-import React, { useState } from 'react';
-import { useSite } from '../context/SiteContext.jsx';
+import React, { useEffect, useState } from 'react';
 import SetupItem from '../components/SetupItem.jsx';
 import AffiliateDisclosure from '../components/AffiliateDisclosure.jsx';
-import { initialSetupItems } from '../data/initialSetupItems.js';
+import { fetchSetupProducts } from '../services/api.js';
+import { setupTourTags } from '../data/setupTourTags.js';
 import { Monitor, Compass, Sparkles, SlidersHorizontal } from 'lucide-react';
-import heroDeskImg from '../assets/images/hero_setup_desk_1790324766242.jpg';
 
 export default function MySetupPage({ onSelectProduct, onNavigate }) {
-  const { products } = useSite();
+  const [setupProducts, setSetupProducts] = useState([]);
   const [activeFilter, setActiveFilter] = useState('all');
 
-  const setupCategories = [
-    'all',
-    'Gaming Setup',
-    'Mouse',
-    'Keyboard',
-    'Mousepad / Desk Mat',
-    'Headphones',
-    'Lighting',
-    'Laptop Accessories',
-    'Creator Gear',
-    'Setup & Workspace'
-  ];
+  useEffect(() => {
+    let active = true;
+    fetchSetupProducts()
+      .then((data) => {
+        if (active) setSetupProducts(data);
+      })
+      .catch((error) => {
+        console.warn('My Setup products could not be loaded:', error.message);
+        if (active) setSetupProducts([]);
+      });
 
-  const setupItems = initialSetupItems.map((item) => {
-    const matchedProduct = products.find((product) => product.id === item.productId);
-
-    return {
-      ...item,
-      image: matchedProduct?.imageUrl || matchedProduct?.image || item.image,
-      productName: matchedProduct?.name || item.productName,
-      itemTitle: matchedProduct?.shortDescription || item.itemTitle,
-      affiliateUrl: matchedProduct?.affiliateUrl || item.affiliateUrl,
-      price: matchedProduct?.price ?? item.price,
-      category: item.category
+    return () => {
+      active = false;
     };
-  });
+  }, []);
+
+  const setupCategories = ['all', ...setupTourTags];
+  const orderedSetupProducts = setupProducts
+    .filter((product) => product.showInMySetup === true)
+    .sort((a, b) => (a.setupOrder ?? Number.MAX_SAFE_INTEGER) - (b.setupOrder ?? Number.MAX_SAFE_INTEGER));
+  const setupItems = setupTourTags.flatMap((category) =>
+    orderedSetupProducts
+      .filter((product) => Array.isArray(product.setupTags) && product.setupTags.includes(category))
+      .map((product) => ({ ...product, category }))
+  );
 
   const filteredItems = activeFilter === 'all'
     ? setupItems
-    : setupItems.filter((i) => i.category === activeFilter);
+    : setupItems.filter((product) => product.category === activeFilter);
 
   return (
     <div className="max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-10 xl:px-12 pt-20 sm:pt-24 pb-12 space-y-10 sm:space-y-12 text-left">
@@ -71,30 +69,32 @@ export default function MySetupPage({ onSelectProduct, onNavigate }) {
       </div>
 
       {/* Quick Category Jump Bar */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar text-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-xs">
         <span className="text-[11px] uppercase font-bold tracking-wider text-[#A8A0B8] pr-2 shrink-0">
           Jump to:
         </span>
-        {setupCategories.map((cat) => (
-          <button
-            key={cat}
-            onClick={() => setActiveFilter(cat)}
-            className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-colors cursor-pointer ${
-              activeFilter === cat
-                ? 'bg-purple-600 text-white shadow-sm'
-                : 'bg-[#120D1A] text-[#A8A0B8] hover:text-white border border-purple-500/10'
-            }`}
-          >
-            {cat === 'all' ? 'All Items (Virtual Tour)' : cat}
-          </button>
-        ))}
+        <div className="grid grid-cols-[repeat(5,max-content)] sm:flex sm:flex-nowrap items-center gap-2 overflow-x-auto pb-2 sm:pb-0 no-scrollbar">
+          {setupCategories.map((cat) => (
+            <button
+              key={cat}
+              onClick={() => setActiveFilter(cat)}
+              className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-colors cursor-pointer ${
+                activeFilter === cat
+                  ? 'bg-purple-600 text-white shadow-sm'
+                  : 'bg-[#120D1A] text-[#A8A0B8] hover:text-white border border-purple-500/10'
+              }`}
+            >
+              {cat === 'all' ? 'All Items (Virtual Tour)' : cat}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Editorial Setup Items List */}
       <div className="space-y-4">
         {filteredItems.map((item, index) => (
           <SetupItem
-            key={item.id}
+            key={`${item.id}-${item.category}`}
             item={item}
             index={index}
             onSelectProduct={onSelectProduct}

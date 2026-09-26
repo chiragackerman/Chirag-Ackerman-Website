@@ -53,6 +53,20 @@ const memoryStore = {
   ]
 };
 
+function initializeMemoryProductOrders(flagField, orderField) {
+  const maxExistingOrder = memoryStore.products.reduce((maxOrder, product) => Math.max(maxOrder, product[orderField] || 0), 0);
+  const missingOrders = memoryStore.products
+    .filter((product) => product[flagField] === true && product[orderField] == null)
+    .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+
+  missingOrders.forEach((product, index) => {
+    product[orderField] = maxExistingOrder + index + 1;
+  });
+}
+
+initializeMemoryProductOrders('featured', 'featuredOrder');
+initializeMemoryProductOrders('showInMySetup', 'setupOrder');
+
 export async function initDatabase() {
   const mongoUri = process.env.MONGODB_URI;
   if (mongoUri) {
@@ -66,6 +80,7 @@ export async function initDatabase() {
       await seedMongoIfEmpty();
       await migrateMonitorCategory();
       await migrateCategoryOrderAndCodingGear();
+      await migrateProductOrdering();
       const authConfig = await ensureAdminAccount();
       if (!authConfig.valid) {
         const details = authConfig.missing?.length
@@ -137,6 +152,65 @@ async function migrateCategoryOrderAndCodingGear() {
   );
 }
 
+async function migrateProductOrdering() {
+  const migrationKey = 'product_order_migration_v1';
+  const migration = await SiteSetting.findOne({ key: migrationKey }).lean();
+
+  if (!migration) {
+    const featuredProducts = await Product.find({
+      featured: true,
+      $or: [{ featuredOrder: null }, { featuredOrder: { $exists: false } }]
+    }).sort({ createdAt: -1, _id: 1 }).select('id').lean();
+    let featuredOrder = await Product.findOne({ featuredOrder: { $ne: null } }).sort({ featuredOrder: -1 }).select('featuredOrder').lean();
+    let nextFeaturedOrder = featuredOrder?.featuredOrder || 0;
+    for (const product of featuredProducts) {
+      nextFeaturedOrder += 1;
+      await Product.updateOne({ id: product.id }, { $set: { featuredOrder: nextFeaturedOrder } });
+    }
+
+    const setupProducts = await Product.find({
+      showInMySetup: true,
+      $or: [{ setupOrder: null }, { setupOrder: { $exists: false } }]
+    }).sort({ createdAt: -1, _id: 1 }).select('id').lean();
+    const existingSetupOrder = await Product.findOne({ setupOrder: { $ne: null } }).sort({ setupOrder: -1 }).select('setupOrder').lean();
+    let nextSetupOrder = existingSetupOrder?.setupOrder || 0;
+    for (const product of setupProducts) {
+      nextSetupOrder += 1;
+      await Product.updateOne({ id: product.id }, { $set: { setupOrder: nextSetupOrder } });
+    }
+
+    await SiteSetting.create({ key: migrationKey, value: { completedAt: new Date() } });
+  }
+
+  const [featuredMax, setupMax] = await Promise.all([
+    Product.findOne({ featuredOrder: { $ne: null } }).sort({ featuredOrder: -1 }).select('featuredOrder').lean(),
+    Product.findOne({ setupOrder: { $ne: null } }).sort({ setupOrder: -1 }).select('setupOrder').lean()
+  ]);
+  await SiteSetting.findOneAndUpdate(
+    { key: 'product_order_counters' },
+    {
+      $max: {
+        'value.featuredOrder': featuredMax?.featuredOrder || 0,
+        'value.setupOrder': setupMax?.setupOrder || 0
+      }
+    },
+    { upsert: true, returnDocument: 'after' }
+  );
+}
+
+async function reserveProductOrder(counterField) {
+  const counter = await SiteSetting.findOneAndUpdate(
+    { key: 'product_order_counters' },
+    { $inc: { [`value.${counterField}`]: 1 } },
+    { upsert: true, returnDocument: 'after' }
+  ).lean();
+  return counter.value[counterField];
+}
+
+function nextMemoryProductOrder(field) {
+  return memoryStore.products.reduce((maxOrder, product) => Math.max(maxOrder, product[field] || 0), 0) + 1;
+}
+
 async function seedMongoIfEmpty() {
   if (!isMongoConnected) return;
   try {
@@ -173,6 +247,7 @@ export const dbService = {
       const query = {};
       if (filters.category && filters.category !== 'all') query.category = filters.category;
       if (filters.featured === true) query.featured = true;
+      if (filters.showInMySetup === true) query.showInMySetup = true;
       if (filters.published !== undefined) query.published = filters.published;
       if (filters.search) {
         query.$or = [
@@ -181,7 +256,10 @@ export const dbService = {
           { description: { $regex: filters.search, $options: 'i' } }
         ];
       }
-      return await Product.find(query).sort({ createdAt: -1 });
+      const order = filters.showInMySetup === true
+        ? { setupOrder: 1, createdAt: -1 }
+        : { featured: -1, featuredOrder: 1, createdAt: -1 };
+      return await Product.find(query).sort(order);
     }
 
     let results = [...memoryStore.products];
@@ -190,6 +268,9 @@ export const dbService = {
     }
     if (filters.featured === true) {
       results = results.filter(p => p.featured);
+    }
+    if (filters.showInMySetup === true) {
+      results = results.filter(p => p.showInMySetup === true);
     }
     if (filters.published !== undefined) {
       results = results.filter(p => p.published === filters.published);
@@ -202,7 +283,14 @@ export const dbService = {
         p.description?.toLowerCase().includes(q)
       );
     }
-    return results;
+    return results.sort((a, b) => {
+      if (filters.showInMySetup === true) {
+        return (a.setupOrder ?? Number.MAX_SAFE_INTEGER) - (b.setupOrder ?? Number.MAX_SAFE_INTEGER);
+      }
+      if (a.featured !== b.featured) return a.featured ? -1 : 1;
+      if (a.featured && b.featured) return (a.featuredOrder ?? Number.MAX_SAFE_INTEGER) - (b.featuredOrder ?? Number.MAX_SAFE_INTEGER);
+      return (b.createdAt || '').localeCompare(a.createdAt || '');
+    });
   },
 
   async getProductById(id) {
@@ -225,8 +313,14 @@ export const dbService = {
     };
 
     if (isMongoConnected) {
+      if (newProd.featured) newProd.featuredOrder = await reserveProductOrder('featuredOrder');
+      else newProd.featuredOrder = null;
+      if (newProd.showInMySetup) newProd.setupOrder = await reserveProductOrder('setupOrder');
+      else newProd.setupOrder = null;
       return await Product.create(newProd);
     }
+    newProd.featuredOrder = newProd.featured ? nextMemoryProductOrder('featuredOrder') : null;
+    newProd.setupOrder = newProd.showInMySetup ? nextMemoryProductOrder('setupOrder') : null;
     memoryStore.products.unshift(newProd);
     return newProd;
   },
@@ -238,13 +332,41 @@ export const dbService = {
       ...(img !== undefined ? { image: img, imageUrl: img } : {}),
       updatedAt: new Date().toISOString()
     };
+    delete updated.featuredOrder;
+    delete updated.setupOrder;
 
     if (isMongoConnected) {
-      return await Product.findOneAndUpdate({ id }, updated, { new: true });
+      const existing = await Product.findOne({ id }).select('featured featuredOrder showInMySetup setupOrder').lean();
+      if (!existing) return null;
+
+      const nextFeatured = data.featured ?? existing.featured;
+      if (nextFeatured && !existing.featured) updated.featuredOrder = await reserveProductOrder('featuredOrder');
+      else if (!nextFeatured) updated.featuredOrder = null;
+      else if (existing.featuredOrder == null) updated.featuredOrder = await reserveProductOrder('featuredOrder');
+
+      const nextInSetup = data.showInMySetup ?? existing.showInMySetup;
+      if (nextInSetup && !existing.showInMySetup) updated.setupOrder = await reserveProductOrder('setupOrder');
+      else if (!nextInSetup) updated.setupOrder = null;
+      else if (existing.setupOrder == null) updated.setupOrder = await reserveProductOrder('setupOrder');
+
+      return await Product.findOneAndUpdate(
+        { id },
+        { $set: updated },
+        { returnDocument: 'after', runValidators: true }
+      );
     }
 
     const idx = memoryStore.products.findIndex(p => p.id === id);
     if (idx !== -1) {
+      const existing = memoryStore.products[idx];
+      const nextFeatured = data.featured ?? existing.featured;
+      if (nextFeatured && !existing.featured) updated.featuredOrder = nextMemoryProductOrder('featuredOrder');
+      else if (!nextFeatured) updated.featuredOrder = null;
+      else if (existing.featuredOrder == null) updated.featuredOrder = nextMemoryProductOrder('featuredOrder');
+      const nextInSetup = data.showInMySetup ?? existing.showInMySetup;
+      if (nextInSetup && !existing.showInMySetup) updated.setupOrder = nextMemoryProductOrder('setupOrder');
+      else if (!nextInSetup) updated.setupOrder = null;
+      else if (existing.setupOrder == null) updated.setupOrder = nextMemoryProductOrder('setupOrder');
       memoryStore.products[idx] = { ...memoryStore.products[idx], ...updated };
       return memoryStore.products[idx];
     }

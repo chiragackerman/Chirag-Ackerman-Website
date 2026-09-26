@@ -1,7 +1,7 @@
 import React from 'react';
 import { useSite } from '../context/SiteContext.jsx';
 import { ArrowRight, Monitor, Instagram, Sparkles } from 'lucide-react';
-const heroDeskImg = '/src/assets/images/hero_setup_desk_1790324766242.jpg';
+const heroDeskImg = '/src/assets/images/Setup_Image.jpg';
 
 export default function Hero({ onNavigate }) {
   const { siteConfig } = useSite();
@@ -23,12 +23,12 @@ export default function Hero({ onNavigate }) {
             </div>
 
             {/* Main Headline - Modern, readable gaming typography */}
-            <h1 className="font-display font-bold text-4xl sm:text-5xl lg:text-6xl tracking-tight leading-[1.05] text-white">
-              <span className="block text-white">GAMING.</span>
-              <span className="block bg-gradient-to-r from-purple-400 via-purple-300 to-lavender-200 bg-clip-text text-transparent">
+            <h1 className="font-display flex gap-1 font-bold text-4xl sm:text-5xl lg:text-6xl tracking-tight leading-[1.05] text-white">
+              <span className=" text-white">GAMING.</span>
+              <span className=" text-purple-400">
                 CODING.
               </span>
-              <span className="block text-white">TECH.</span>
+              <span className=" text-white">TECH.</span>
             </h1>
 
             {/* Subtitle */}
@@ -89,13 +89,13 @@ export default function Hero({ onNavigate }) {
               </div>
 
               {/* Inset Label / Status info */}
-              <div className="absolute bottom-4 left-4 right-4 p-4 rounded-xl bg-[#0B0710]/80 backdrop-blur-md border border-purple-500/20 flex items-center justify-between">
+              <div className="relative sm:absolute sm:bottom-2 sm:left-4 sm:right-4 mt-0 sm:mt-0 p-4 sm:rounded-xl rounded-b-xl bg-[#0B0710]/80 backdrop-blur-md border border-purple-500/20 flex items-center justify-between">
                 <div>
                   <p className="text-xs uppercase tracking-wider text-purple-400 font-semibold">
                     Studio Desk Tour
                   </p>
                   <p className="text-sm font-semibold text-white">
-                    Navi Mumbai Setup · 2026 Edition
+                    Chirag Ackerman Setup · 2026 Edition
                   </p>
                 </div>
                 <button

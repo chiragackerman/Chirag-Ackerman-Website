@@ -58,9 +58,11 @@ export default function ShopPage({ initialCategory = 'all', onSelectProduct, onN
         return true;
       })
       .sort((a, b) => {
+        if (a.featured !== b.featured) return a.featured ? -1 : 1;
+        if (a.featured && b.featured) {
+          return (a.featuredOrder ?? Number.MAX_SAFE_INTEGER) - (b.featuredOrder ?? Number.MAX_SAFE_INTEGER);
+        }
         if (sortBy === 'featured') {
-          if (a.featured && !b.featured) return -1;
-          if (!a.featured && b.featured) return 1;
           return (b.createdAt || '').localeCompare(a.createdAt || '');
         }
         if (sortBy === 'newest') {

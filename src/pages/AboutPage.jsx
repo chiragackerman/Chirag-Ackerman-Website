@@ -13,7 +13,7 @@ import {
   ShieldCheck,
   Sparkles
 } from 'lucide-react';
-const heroDeskImg = '/src/assets/images/hero_setup_desk_1790324766242.jpg';
+const heroDeskImg = '/src/assets/images/chirag_official_logo.jpg';
 
 export default function AboutPage({ onNavigate }) {
   const { siteConfig } = useSite();
@@ -83,10 +83,10 @@ export default function AboutPage({ onNavigate }) {
             </div>
             <div className="p-4 bg-[#0B0710]/90 border-t border-purple-500/15">
               <span className="text-xs uppercase tracking-wider text-purple-400 font-semibold block">
-                Primary Studio Rig
+                Chirag S
               </span>
               <p className="text-xs text-[#A8A0B8]">
-                Customized for high-performance rendering, low-latency tracking, and multi-display coding.
+                A young boy engaged in Content Creation, Web Development, and the Tech World.
               </p>
             </div>
           </div>

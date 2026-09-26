@@ -41,7 +41,7 @@ export default function FilterPanel({
         </div>
 
         {/* Sort & Featured toggle */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-3">
           <button
             onClick={() => onFeaturedChange(!featuredOnly)}
             className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 border transition-all cursor-pointer ${
@@ -82,7 +82,7 @@ export default function FilterPanel({
         <span className="text-[11px] uppercase font-bold tracking-wider text-[#A8A0B8]">
           Category Filter
         </span>
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar text-xs">
+        <div className="grid grid-cols-[repeat(5,max-content)] sm:flex sm:flex-nowrap items-center gap-2 overflow-x-auto pb-1 no-scrollbar text-xs">
           <button
             onClick={() => onCategoryChange('all')}
             className={`px-3.5 py-1.5 rounded-lg font-medium whitespace-nowrap transition-colors cursor-pointer ${

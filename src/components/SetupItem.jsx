@@ -3,18 +3,23 @@ import { useSite } from '../context/SiteContext.jsx';
 import { ExternalLink, ArrowRight, Quote } from 'lucide-react';
 
 export default function SetupItem({ item, index, onSelectProduct }) {
-  const { trackAndOpenAffiliate, products } = useSite();
+  const { trackAndOpenAffiliate } = useSite();
 
-  const matchedProduct = products.find((p) => p.id === item.productId);
-  const displayImage = matchedProduct?.imageUrl || matchedProduct?.image || item.image;
-  const displayTitle = matchedProduct?.name || item.productName;
+  const displayImage = item.imageUrl || item.image || '';
+  const displayTitle = item.name;
+  const specifications = Array.isArray(item.specifications)
+    ? item.specifications
+        .map(({ key, value }) => [key, value].filter(Boolean).join(': '))
+        .filter(Boolean)
+        .join(' · ')
+    : '';
 
   const handleOpenProduct = (e) => {
     e.stopPropagation();
-    if (matchedProduct && onSelectProduct) {
-      onSelectProduct(matchedProduct.id);
+    if (item.id && onSelectProduct) {
+      onSelectProduct(item.id);
     } else if (item.affiliateUrl) {
-      trackAndOpenAffiliate({ id: item.id, name: item.productName }, item.affiliateUrl, 'Setup Tour');
+      trackAndOpenAffiliate(item, item.affiliateUrl, 'Setup Tour');
     }
   };
 
@@ -50,32 +55,34 @@ export default function SetupItem({ item, index, onSelectProduct }) {
               {displayTitle}
             </h3>
             <p className="text-sm font-semibold text-purple-300">
-              {matchedProduct?.shortDescription || item.itemTitle}
+              {item.shortDescription}
             </p>
           </div>
 
           {/* Why I Use It */}
-          <div className="p-4 rounded-xl bg-[#171020]/90 border border-purple-500/15 relative">
-            <div className="flex items-start gap-3">
-              <Quote className="w-5 h-5 text-purple-400 shrink-0 mt-0.5" />
-              <div>
-                <span className="text-xs uppercase tracking-wider text-purple-300 font-bold block mb-1">
-                  Why I Use It
-                </span>
-                <p className="text-sm text-[#A8A0B8] leading-relaxed">
-                  {item.whyIUseIt}
-                </p>
+          {item.description && (
+            <div className="p-4 rounded-xl bg-[#171020]/90 border border-purple-500/15 relative">
+              <div className="flex items-start gap-3">
+                <Quote className="w-5 h-5 text-purple-400 shrink-0 mt-0.5" />
+                <div>
+                  <span className="text-xs uppercase tracking-wider text-purple-300 font-bold block mb-1">
+                    Why I Use It
+                  </span>
+                  <p className="text-sm text-[#A8A0B8] leading-relaxed">
+                    {item.description}
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Specifications */}
-          {item.specs && (
+          {specifications && (
             <div className="text-xs text-[#A8A0B8]/80 font-mono">
               <span className="text-purple-400/80 font-semibold font-sans uppercase tracking-wider text-[11px] block mb-1">
                 Highlights &amp; Dimensions
               </span>
-              <span>{item.specs}</span>
+              <span>{specifications}</span>
             </div>
           )}
 
@@ -94,7 +101,7 @@ export default function SetupItem({ item, index, onSelectProduct }) {
                 href={item.affiliateUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={() => trackAndOpenAffiliate({ id: item.id, name: item.productName }, item.affiliateUrl, 'Direct Setup Link')}
+                onClick={() => trackAndOpenAffiliate(item, item.affiliateUrl, 'Direct Setup Link')}
                 className="px-4 py-2.5 rounded-xl bg-[#171020] hover:bg-[#1E142B] border border-purple-500/25 text-purple-300 text-xs font-medium flex items-center gap-1.5 transition-colors"
               >
                 <span>Direct Retailer</span>

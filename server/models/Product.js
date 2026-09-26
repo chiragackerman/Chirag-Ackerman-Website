@@ -26,7 +26,11 @@ const productSchema = new mongoose.Schema({
   rating: { type: Number, default: null },
   reviewCount: { type: Number, default: null },
   featured: { type: Boolean, default: false, index: true },
+  featuredOrder: { type: Number, default: null },
   published: { type: Boolean, default: true, index: true },
+  showInMySetup: { type: Boolean, default: false },
+  setupTags: { type: [String], default: [] },
+  setupOrder: { type: Number, default: null },
   tags: [{ type: String }],
   specifications: [specificationSchema]
 }, {
@@ -35,6 +39,8 @@ const productSchema = new mongoose.Schema({
 
 productSchema.index({ category: 1, published: 1 });
 productSchema.index({ featured: 1, published: 1 });
+productSchema.index({ featured: 1, featuredOrder: 1, createdAt: -1 });
+productSchema.index({ showInMySetup: 1, published: 1, setupOrder: 1 });
 productSchema.index({ createdAt: -1 });
 
 export const Product = mongoose.models.Product || mongoose.model('Product', productSchema);
