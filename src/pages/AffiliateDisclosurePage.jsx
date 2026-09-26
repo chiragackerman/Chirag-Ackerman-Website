@@ -1,5 +1,6 @@
 import React from 'react';
 import { useSite } from '../context/SiteContext.jsx';
+import SEOHead from '../components/SEOHead.jsx';
 import { ShieldCheck, Info, ExternalLink, HeartHandshake, CheckCircle2 } from 'lucide-react';
 
 export default function AffiliateDisclosurePage({ onNavigate }) {
@@ -7,6 +8,12 @@ export default function AffiliateDisclosurePage({ onNavigate }) {
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-16 space-y-10 text-left">
+      <SEOHead
+        title="Affiliate Disclosure — CHIRAG ACKERMAN"
+        description="Editorial transparency and affiliate relationship disclosure for CHIRAG ACKERMAN. Genuine gear recommendations and creator storefront transparency."
+        canonicalPath="/#affiliate-disclosure"
+      />
+
       <div className="space-y-3 border-b border-purple-900/30 pb-8">
         <div className="inline-flex items-center gap-2 text-xs uppercase tracking-widest text-purple-400 font-semibold">
           <ShieldCheck className="w-4 h-4" />

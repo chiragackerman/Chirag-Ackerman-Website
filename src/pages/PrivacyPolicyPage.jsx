@@ -1,5 +1,6 @@
 import React from 'react';
 import { useSite } from '../context/SiteContext.jsx';
+import SEOHead from '../components/SEOHead.jsx';
 import { Shield, Lock } from 'lucide-react';
 
 export default function PrivacyPolicyPage() {
@@ -7,6 +8,12 @@ export default function PrivacyPolicyPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-16 space-y-10 text-left">
+      <SEOHead
+        title="Privacy Policy — CHIRAG ACKERMAN"
+        description="Privacy policy and data protection disclosures for CHIRAG ACKERMAN creator storefront and personal website."
+        canonicalPath="/#privacy"
+      />
+
       <div className="space-y-3 border-b border-purple-900/30 pb-8">
         <div className="inline-flex items-center gap-2 text-xs uppercase tracking-widest text-purple-400 font-semibold">
           <Shield className="w-4 h-4" />

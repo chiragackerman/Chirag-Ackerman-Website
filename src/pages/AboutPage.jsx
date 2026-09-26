@@ -1,6 +1,7 @@
 import React from 'react';
 import { useSite } from '../context/SiteContext.jsx';
 import Stats from '../components/Stats.jsx';
+import SEOHead from '../components/SEOHead.jsx';
 import {
   Instagram,
   Mail,
@@ -20,6 +21,19 @@ export default function AboutPage({ onNavigate }) {
 
   return (
     <div className="max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-10 xl:px-12 pt-20 sm:pt-24 pb-12 space-y-10 sm:space-y-12 text-left">
+      <SEOHead
+        title="About — CHIRAG ACKERMAN | Gaming, Coding & Tech"
+        description="Learn more about CHIRAG ACKERMAN — independent tech creator and software developer based in Navi Mumbai sharing gaming hardware, desk ergonomics, and mechanical keyboards."
+        canonicalPath="/#about"
+        schema={{
+          "@context": "https://schema.org",
+          "@type": "AboutPage",
+          "name": "About CHIRAG ACKERMAN",
+          "description": "Background, digital workstation ethos, and creative focus of CHIRAG ACKERMAN.",
+          "url": "https://chiragackerman.dev/#about"
+        }}
+      />
+
       {/* Intro Header */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
         <div className="lg:col-span-7 space-y-4 sm:space-y-5">

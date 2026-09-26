@@ -3,6 +3,7 @@ import { useSite } from '../context/SiteContext.jsx';
 import ProductCard from '../components/ProductCard.jsx';
 import FilterPanel from '../components/FilterPanel.jsx';
 import AffiliateDisclosure from '../components/AffiliateDisclosure.jsx';
+import SEOHead from '../components/SEOHead.jsx';
 import { ShoppingBag, PackageOpen } from 'lucide-react';
 
 export default function ShopPage({ initialCategory = 'all', onSelectProduct, onNavigate }) {
@@ -86,8 +87,51 @@ export default function ShopPage({ initialCategory = 'all', onSelectProduct, onN
     setSortBy('featured');
   };
 
+  const currentCat = categories.find((c) => (c.slug || c.id) === selectedCategory);
+  const pageTitle = currentCat
+    ? `${currentCat.name} — Gaming & Tech Gear | CHIRAG ACKERMAN`
+    : 'Shop Gaming & Tech Gear — CHIRAG ACKERMAN';
+  const pageDesc = currentCat?.description
+    ? `${currentCat.description} Curated by CHIRAG ACKERMAN.`
+    : 'Discover the exact peripherals, ergonomic desk accessories, and developer hardware curated and endorsed by CHIRAG ACKERMAN.';
+  const canonicalPath = currentCat
+    ? `/#category/${encodeURIComponent(currentCat.slug || currentCat.id)}`
+    : '/#shop';
+
+  const shopSchema = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    "name": pageTitle,
+    "description": pageDesc,
+    "url": `https://chiragackerman.dev${canonicalPath}`,
+    "breadcrumb": {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://chiragackerman.dev"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": currentCat ? currentCat.name : "Shop",
+          "item": `https://chiragackerman.dev${canonicalPath}`
+        }
+      ]
+    }
+  };
+
   return (
     <div className="max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-10 xl:px-12 pt-20 sm:pt-24 pb-12 space-y-6 sm:space-y-8 text-left">
+      <SEOHead
+        title={pageTitle}
+        description={pageDesc}
+        canonicalPath={canonicalPath}
+        schema={shopSchema}
+      />
+
       {/* Page Header */}
       <div className="space-y-2">
         <div className="inline-flex items-center gap-2 text-xs uppercase tracking-widest text-purple-400 font-semibold">

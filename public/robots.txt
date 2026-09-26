@@ -1,0 +1,7 @@
+# robots.txt for CHIRAG ACKERMAN
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /api/
+
+Sitemap: https://chiragackerman.dev/sitemap.xml

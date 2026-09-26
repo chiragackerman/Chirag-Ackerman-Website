@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import SetupItem from '../components/SetupItem.jsx';
 import AffiliateDisclosure from '../components/AffiliateDisclosure.jsx';
+import SEOHead from '../components/SEOHead.jsx';
 import { fetchSetupProducts } from '../services/api.js';
 import { setupTourTags } from '../data/setupTourTags.js';
 import { Monitor, Compass, Sparkles, SlidersHorizontal } from 'lucide-react';
@@ -41,6 +42,36 @@ export default function MySetupPage({ onSelectProduct, onNavigate }) {
 
   return (
     <div className="max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-10 xl:px-12 pt-20 sm:pt-24 pb-12 space-y-10 sm:space-y-12 text-left">
+      <SEOHead
+        title="My Gaming & Creator Setup — CHIRAG ACKERMAN"
+        description="Explore the personal gaming and software engineering workstation of CHIRAG ACKERMAN in Navi Mumbai. Battle-tested peripherals, audio, and minimalist desk gear."
+        canonicalPath="/#setup"
+        schema={{
+          "@context": "https://schema.org",
+          "@type": "WebPage",
+          "name": "My Gaming & Creator Setup — CHIRAG ACKERMAN",
+          "description": "Explore the personal gaming and software engineering workstation of CHIRAG ACKERMAN in Navi Mumbai. Battle-tested peripherals, audio, and minimalist desk gear.",
+          "url": "https://chiragackerman.dev/#setup",
+          "breadcrumb": {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": "https://chiragackerman.dev"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "My Setup",
+                "item": "https://chiragackerman.dev/#setup"
+              }
+            ]
+          }
+        }}
+      />
+
       {/* Editorial Header Banner */}
       <div className="relative rounded-3xl p-6 sm:p-10 lg:p-12 bg-gradient-to-br from-[#120D1A] via-[#171020] to-[#0A0612] border border-purple-500/25 purple-glow overflow-hidden">
         <div className="relative z-10 max-w-3xl space-y-3 sm:space-y-4">

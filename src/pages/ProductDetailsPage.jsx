@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useSite } from '../context/SiteContext.jsx';
 import ProductCard from '../components/ProductCard.jsx';
 import AffiliateDisclosure from '../components/AffiliateDisclosure.jsx';
+import SEOHead from '../components/SEOHead.jsx';
 import {
   ArrowLeft,
   ExternalLink,
@@ -26,6 +27,11 @@ export default function ProductDetailsPage({ productId, onNavigate, onSelectProd
   if (!product) {
     return (
       <div className="max-w-4xl mx-auto px-4 pt-32 pb-20 text-center space-y-4">
+        <SEOHead
+          title="Product Not Found — CHIRAG ACKERMAN"
+          description="The requested gear item could not be found in Chirag Ackerman's tech catalog."
+          noindex={true}
+        />
         <h2 className="font-display font-bold text-2xl text-white">Product Not Found</h2>
         <p className="text-sm text-[#A8A0B8]">The requested gear item does not exist or has been removed.</p>
         <button
@@ -37,6 +43,33 @@ export default function ProductDetailsPage({ productId, onNavigate, onSelectProd
       </div>
     );
   }
+
+  const productTitle = `${product.name} — Gaming & Tech Gear | CHIRAG ACKERMAN`;
+  const productDesc = (product.shortDescription || product.description || `Explore ${product.name} by ${product.brand}, curated and tested by CHIRAG ACKERMAN.`).slice(0, 160);
+  const productImage = product.imageUrl || product.image || '/chirag_official_logo.jpg';
+  const canonicalPath = `/#product/${product.id}`;
+
+  const productSchema = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": product.name,
+    "image": [productImage],
+    "description": product.shortDescription || product.description || product.name,
+    "brand": {
+      "@type": "Brand",
+      "name": product.brand || "CHIRAG ACKERMAN"
+    },
+    "category": product.categoryName || product.category,
+    ...(product.price ? {
+      "offers": {
+        "@type": "Offer",
+        "price": product.price,
+        "priceCurrency": product.currency === "₹" ? "INR" : (product.currency || "INR"),
+        "availability": "https://schema.org/InStock",
+        "url": product.affiliateUrl || `https://chiragackerman.dev${canonicalPath}`
+      }
+    } : {})
+  };
 
   // Related products from same category
   const relatedProducts = products
@@ -74,6 +107,15 @@ export default function ProductDetailsPage({ productId, onNavigate, onSelectProd
 
   return (
     <div className="max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-10 xl:px-12 pt-20 sm:pt-24 pb-12 space-y-8 sm:space-y-10 text-left">
+      <SEOHead
+        title={productTitle}
+        description={productDesc}
+        image={productImage}
+        canonicalPath={canonicalPath}
+        type="product"
+        schema={productSchema}
+      />
+
       {/* Back Button & Breadcrumb */}
       <div className="flex items-center justify-between">
         <button

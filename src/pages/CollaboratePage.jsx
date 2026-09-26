@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useSite } from '../context/SiteContext.jsx';
 import { submitCollab } from '../services/api.js';
+import SEOHead from '../components/SEOHead.jsx';
 import {
   Mail,
   Send,
@@ -93,6 +94,19 @@ export default function CollaboratePage() {
 
   return (
     <div className="max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-10 xl:px-12 pt-20 sm:pt-24 pb-12 space-y-10 sm:space-y-12 text-left">
+      <SEOHead
+        title="Collaborate — CHIRAG ACKERMAN | Brand Partnerships"
+        description="Partner with CHIRAG ACKERMAN for gaming peripheral reviews, desk setup integrations, and authentic tech hardware showcases."
+        canonicalPath="/#collaborate"
+        schema={{
+          "@context": "https://schema.org",
+          "@type": "ContactPage",
+          "name": "Collaborate with CHIRAG ACKERMAN",
+          "description": "Brand partnerships and hardware sponsorship inquiries for CHIRAG ACKERMAN.",
+          "url": "https://chiragackerman.dev/#collaborate"
+        }}
+      />
+
       {/* Page Header */}
       <div className="max-w-4xl space-y-3 sm:space-y-4">
         <div className="inline-flex items-center gap-2 text-xs uppercase tracking-widest text-purple-400 font-semibold">

@@ -21,9 +21,15 @@ export default function ProductCard({ product, onSelectProduct }) {
   };
 
   return (
-    <div
-      onClick={handleCardClick}
-      className="group relative flex flex-col rounded-2xl bg-[#120D1A] border border-purple-500/15 hover:border-purple-400/40 transition-all duration-300 hover:-translate-y-1 purple-glow-card cursor-pointer overflow-hidden"
+    <a
+      href={`#product/${product.id}`}
+      onClick={(e) => {
+        if (!e.ctrlKey && !e.metaKey && !e.shiftKey && e.button === 0) {
+          e.preventDefault();
+          handleCardClick();
+        }
+      }}
+      className="group relative flex flex-col rounded-2xl bg-[#120D1A] border border-purple-500/15 hover:border-purple-400/40 transition-all duration-300 hover:-translate-y-1 purple-glow-card cursor-pointer overflow-hidden text-left"
     >
       {/* Product Image Area */}
       <div className="relative aspect-[4/3] w-full bg-[#171020] overflow-hidden flex items-center justify-center">
@@ -31,6 +37,7 @@ export default function ProductCard({ product, onSelectProduct }) {
           <img
             src={product.imageUrl || product.image}
             alt={product.name}
+            loading="lazy"
             referrerPolicy="no-referrer"
             onError={() => setImageError(true)}
             className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
@@ -111,6 +118,6 @@ export default function ProductCard({ product, onSelectProduct }) {
           </div>
         </div>
       </div>
-    </div>
+    </a>
   );
 }

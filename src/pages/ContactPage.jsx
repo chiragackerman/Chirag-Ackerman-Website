@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useSite } from '../context/SiteContext.jsx';
 import { submitContact } from '../services/api.js';
+import SEOHead from '../components/SEOHead.jsx';
 import { Mail, Instagram, MapPin, Send, CheckCircle, AlertCircle } from 'lucide-react';
 
 export default function ContactPage() {
@@ -46,6 +47,19 @@ export default function ContactPage() {
 
   return (
     <div className="max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-10 xl:px-12 pt-20 sm:pt-24 pb-12 space-y-8 sm:space-y-10 text-left">
+      <SEOHead
+        title="Contact — CHIRAG ACKERMAN | Get In Touch"
+        description="Send direct inquiries to CHIRAG ACKERMAN regarding gaming peripheral recommendations, desk setup questions, or creator collaborations."
+        canonicalPath="/#contact"
+        schema={{
+          "@context": "https://schema.org",
+          "@type": "ContactPage",
+          "name": "Contact CHIRAG ACKERMAN",
+          "description": "Send questions or hardware recommendations to CHIRAG ACKERMAN.",
+          "url": "https://chiragackerman.dev/#contact"
+        }}
+      />
+
       <div className="max-w-3xl space-y-2.5">
         <div className="inline-flex items-center gap-2 text-xs uppercase tracking-widest text-purple-400 font-semibold">
           <Mail className="w-3.5 h-3.5" />

@@ -28,9 +28,15 @@ export default function CategoryCard({ category, onSelectCategory, className = '
   const IconComponent = iconMap[category.iconName] || Layers;
 
   return (
-    <div
-      onClick={() => onSelectCategory(category.slug || category.id)}
-      className={`group relative flex flex-col justify-between p-6 rounded-2xl bg-[#120D1A] border border-purple-500/15 hover:border-purple-400/50 hover:bg-[#171020] transition-all duration-300 hover:-translate-y-1 purple-glow-card cursor-pointer ${className}`}
+    <a
+      href={`#category/${category.slug || category.id}`}
+      onClick={(e) => {
+        if (!e.ctrlKey && !e.metaKey && !e.shiftKey && e.button === 0) {
+          e.preventDefault();
+          onSelectCategory(category.slug || category.id);
+        }
+      }}
+      className={`group relative flex flex-col justify-between p-6 rounded-2xl bg-[#120D1A] border border-purple-500/15 hover:border-purple-400/50 hover:bg-[#171020] transition-all duration-300 hover:-translate-y-1 purple-glow-card cursor-pointer block text-left ${className}`}
     >
       <div className="space-y-4">
         {/* Category Icon */}
@@ -54,6 +60,6 @@ export default function CategoryCard({ category, onSelectCategory, className = '
         <span>Browse Products</span>
         <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
       </div>
-    </div>
+    </a>
   );
 }

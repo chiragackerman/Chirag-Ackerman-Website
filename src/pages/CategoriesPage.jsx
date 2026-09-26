@@ -2,6 +2,7 @@ import React from 'react';
 import { useSite } from '../context/SiteContext.jsx';
 import CategoryCard from '../components/CategoryCard.jsx';
 import AffiliateDisclosure from '../components/AffiliateDisclosure.jsx';
+import SEOHead from '../components/SEOHead.jsx';
 import { Layers } from 'lucide-react';
 
 export default function CategoriesPage({ onSelectCategory, onNavigate }) {
@@ -9,6 +10,18 @@ export default function CategoriesPage({ onSelectCategory, onNavigate }) {
 
   return (
     <div className="max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-10 xl:px-12 pt-20 sm:pt-24 pb-12 space-y-8 sm:space-y-10 text-left">
+      <SEOHead
+        title="Gear Categories — CHIRAG ACKERMAN"
+        description="Browse gaming gear, mechanical keyboards, audio setups, and workspace essentials organized by category by CHIRAG ACKERMAN."
+        canonicalPath="/#categories"
+        schema={{
+          "@context": "https://schema.org",
+          "@type": "CollectionPage",
+          "name": "Gear Categories — CHIRAG ACKERMAN",
+          "description": "Browse gaming gear, mechanical keyboards, audio setups, and workspace essentials organized by category by CHIRAG ACKERMAN.",
+          "url": "https://chiragackerman.dev/#categories"
+        }}
+      />
       <div className="space-y-2">
         <div className="inline-flex items-center gap-2 text-xs uppercase tracking-widest text-purple-400 font-semibold">
           <Layers className="w-3.5 h-3.5" />

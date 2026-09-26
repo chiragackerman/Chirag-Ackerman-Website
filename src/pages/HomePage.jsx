@@ -6,6 +6,7 @@ import CategoryCard from '../components/CategoryCard.jsx';
 import ProductCard from '../components/ProductCard.jsx';
 import AmazonStorefrontSection from '../components/AmazonStorefrontSection.jsx';
 import AffiliateDisclosure from '../components/AffiliateDisclosure.jsx';
+import SEOHead from '../components/SEOHead.jsx';
 import { ArrowRight, Sparkles, Monitor, Layers } from 'lucide-react';
 
 export default function HomePage({ onNavigate, onSelectProduct, onSelectCategory }) {
@@ -16,6 +17,39 @@ export default function HomePage({ onNavigate, onSelectProduct, onSelectCategory
 
   return (
     <div className="space-y-8 sm:space-y-10">
+      <SEOHead
+        title="CHIRAG ACKERMAN — Gaming, Coding & Tech"
+        description="CHIRAG ACKERMAN — gaming, coding and tech creator sharing gaming gear, setup essentials, product recommendations and creator-focused tech."
+        canonicalPath="/"
+        image="/chirag_official_logo.jpg"
+        schema={{
+          "@context": "https://schema.org",
+          "@graph": [
+            {
+              "@type": "Person",
+              "@id": "https://chiragackerman.dev/#person",
+              "name": "CHIRAG ACKERMAN",
+              "alternateName": "Chirag Ackerman",
+              "jobTitle": "Gaming, Coding & Tech Creator",
+              "url": "https://chiragackerman.dev",
+              "image": "https://chiragackerman.dev/chirag_official_logo.jpg",
+              "sameAs": [
+                "https://instagram.com/chirag.ackerman",
+                "https://www.amazon.in/shop/chirag.ackerman"
+              ]
+            },
+            {
+              "@type": "WebSite",
+              "@id": "https://chiragackerman.dev/#website",
+              "url": "https://chiragackerman.dev",
+              "name": "CHIRAG ACKERMAN",
+              "description": "CHIRAG ACKERMAN — gaming, coding and tech creator sharing gaming gear, setup essentials, product recommendations and creator-focused tech.",
+              "publisher": { "@id": "https://chiragackerman.dev/#person" }
+            }
+          ]
+        }}
+      />
+
       {/* 1. Hero Section */}
       <Hero onNavigate={onNavigate} />
 

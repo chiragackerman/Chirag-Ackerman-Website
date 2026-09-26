@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useSite } from '../context/SiteContext.jsx';
+import SEOHead from '../components/SEOHead.jsx';
 import {
   fetchAnalytics,
   createProduct,
@@ -555,6 +556,12 @@ export default function AdminDashboardPage({ onNavigate }) {
   if (!isAuthenticated) {
     return (
       <div className="min-h-[85vh] flex items-center justify-center px-4 pt-24 pb-16">
+        <SEOHead
+          title="Creator Admin Portal — CHIRAG ACKERMAN"
+          description="Restricted creator management portal."
+          noindex={true}
+          canonicalPath="/#admin"
+        />
         <div className="w-full max-w-md p-8 rounded-3xl bg-[#120D1A] border border-purple-500/25 purple-glow space-y-6 text-left">
           <div className="space-y-2 text-center">
             <div className="w-12 h-12 rounded-2xl bg-purple-950/70 border border-purple-400/30 flex items-center justify-center text-purple-300 mx-auto">
@@ -627,6 +634,13 @@ export default function AdminDashboardPage({ onNavigate }) {
   // Authenticated Admin Dashboard Layout
   return (
     <div className="max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-10 xl:px-12 pt-20 sm:pt-24 pb-12 space-y-6 sm:space-y-8 text-left">
+      <SEOHead
+        title="Admin Dashboard — CHIRAG ACKERMAN"
+        description="Restricted creator management portal."
+        noindex={true}
+        canonicalPath="/#admin"
+      />
+
       {/* Top Header & Admin Profile */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-purple-900/30 pb-5 sm:pb-6">
         <div>
