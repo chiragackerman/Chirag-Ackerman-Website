@@ -300,7 +300,7 @@ export default function AdminDashboardPage({ onNavigate }) {
     }
   };
 
-  const handleFileSelect = (e) => {
+  const handleFileSelect = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -333,44 +333,29 @@ export default function AdminDashboardPage({ onNavigate }) {
       errorMsg: ''
     });
 
-    const reader = new FileReader();
-    reader.onload = async () => {
-      try {
-        const uploadRes = await uploadProductImage({
-          dataUrl: reader.result,
-          fileName: file.name,
-          mimeType: file.type
-        });
-
-        const hostedUrl = uploadRes.url || uploadRes.imageUrl;
-        setUploadedFileInfo((prev) => ({
-          ...prev,
-          previewUrl: hostedUrl,
-          status: 'success',
-          provider: uploadRes.provider
-        }));
-        setProductFormData((prev) => ({
-          ...prev,
-          image: hostedUrl,
-          imageUrl: hostedUrl
-        }));
-      } catch (err) {
-        console.error('Image upload error:', err);
-        setUploadedFileInfo((prev) => ({
-          ...prev,
-          status: 'error',
-          errorMsg: err.message || 'Image upload failed.'
-        }));
-        setProductFormError(err.message || 'Image upload failed. Please try again.');
-      }
-    };
-
-    reader.onerror = () => {
-      setProductFormError('Failed to read image file from disk.');
-      setUploadedFileInfo(null);
-    };
-
-    reader.readAsDataURL(file);
+    try {
+      const uploadRes = await uploadProductImage(file);
+      const hostedUrl = uploadRes.url || uploadRes.imageUrl;
+      setUploadedFileInfo((prev) => ({
+        ...prev,
+        previewUrl: hostedUrl,
+        status: 'success',
+        provider: uploadRes.provider
+      }));
+      setProductFormData((prev) => ({
+        ...prev,
+        image: hostedUrl,
+        imageUrl: hostedUrl
+      }));
+    } catch (err) {
+      console.error('Image upload error:', err);
+      setUploadedFileInfo((prev) => ({
+        ...prev,
+        status: 'error',
+        errorMsg: err.message || 'Image upload failed.'
+      }));
+      setProductFormError(err.message || 'Image upload failed. Please try again.');
+    }
   };
 
   const handleRemoveUploadedImage = () => {

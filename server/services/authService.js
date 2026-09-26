@@ -27,17 +27,34 @@ export async function ensureAdminAccount() {
   if (!config.valid) return config;
 
   const email = process.env.ADMIN_EMAIL.trim().toLowerCase();
-  const existing = await Admin.findOne({ email }).select('+passwordHash');
+  let existing = await Admin.findOne({ email }).select('+passwordHash');
   if (!existing) {
     const passwordHash = await bcrypt.hash(process.env.ADMIN_PASSWORD, BCRYPT_ROUNDS);
-    await Admin.create({
-      email,
-      name: process.env.ADMIN_NAME?.trim() || 'Site Administrator',
-      passwordHash,
-      role: 'superadmin',
-      isActive: true
-    });
-  } else if (!existing.passwordHash) {
+    try {
+      await Admin.updateOne(
+        { email },
+        {
+          $setOnInsert: {
+            email,
+            name: process.env.ADMIN_NAME?.trim() || 'Site Administrator',
+            passwordHash,
+            role: 'superadmin',
+            isActive: true
+          }
+        },
+        { upsert: true, runValidators: true }
+      );
+    } catch (error) {
+      if (error.code !== 11000) throw error;
+    }
+    existing = await Admin.findOne({ email }).select('+passwordHash');
+  }
+
+  if (!existing) {
+    throw new Error('Admin account initialization did not produce an account.');
+  }
+
+  if (!existing.passwordHash) {
     existing.passwordHash = await bcrypt.hash(process.env.ADMIN_PASSWORD, BCRYPT_ROUNDS);
     existing.role = 'superadmin';
     existing.isActive = true;

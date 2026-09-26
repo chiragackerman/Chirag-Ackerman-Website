@@ -12,6 +12,17 @@ import { CollaborationInquiry } from '../models/CollaborationInquiry.js';
 import { ensureAdminAccount, getAuthConfig } from './authService.js';
 
 let isMongoConnected = false;
+let databaseInitialization;
+const isVercelDeployment = process.env.VERCEL === '1' && process.env.VERCEL_ENV !== 'development';
+
+async function upsertIfMissing(Model, filter, update) {
+  try {
+    return await Model.updateOne(filter, update, { upsert: true });
+  } catch (error) {
+    if (error.code !== 11000 || !(await Model.exists(filter))) throw error;
+    return await Model.updateOne(filter, update);
+  }
+}
 
 // Fallback in-memory data store when MONGODB_URI is not set or unreachable
 const memoryStore = {
@@ -67,7 +78,12 @@ function initializeMemoryProductOrders(flagField, orderField) {
 initializeMemoryProductOrders('featured', 'featuredOrder');
 initializeMemoryProductOrders('showInMySetup', 'setupOrder');
 
-export async function initDatabase() {
+export function initDatabase() {
+  if (!databaseInitialization) databaseInitialization = initializeDatabase();
+  return databaseInitialization;
+}
+
+async function initializeDatabase() {
   const mongoUri = process.env.MONGODB_URI;
   if (mongoUri) {
     try {
@@ -90,10 +106,17 @@ export async function initDatabase() {
       }
       return;
     } catch (err) {
-      console.warn('MongoDB connection failed. Operating in high-reliability memory storage mode:', err.message);
       isMongoConnected = false;
+      if (isVercelDeployment) {
+        console.error('MongoDB initialization failed in Vercel runtime:', err.message);
+        throw err;
+      }
+      console.warn('MongoDB connection failed. Operating in high-reliability memory storage mode:', err.message);
     }
   } else {
+    if (isVercelDeployment) {
+      throw new Error('MONGODB_URI must be configured for the Vercel deployment.');
+    }
     console.log('No MONGODB_URI provided in environment. Operating in memory repository mode.');
   }
 
@@ -107,6 +130,9 @@ export async function initDatabase() {
 }
 
 async function migrateMonitorCategory() {
+  const migrationKey = 'monitor_category_migration_v1';
+  if (await SiteSetting.exists({ key: migrationKey })) return;
+
   const monitorProductCount = await Product.countDocuments({ category: 'monitors' });
   if (monitorProductCount > 0) {
     console.warn(`Skipped Monitors category migration because ${monitorProductCount} product(s) still use it.`);
@@ -125,9 +151,16 @@ async function migrateMonitorCategory() {
       }
     }
   );
+
+  await upsertIfMissing(SiteSetting, { key: migrationKey }, {
+    $setOnInsert: { key: migrationKey, value: { completedAt: new Date() } }
+  });
 }
 
 async function migrateCategoryOrderAndCodingGear() {
+  const migrationKey = 'category_order_coding_gear_migration_v1';
+  if (await SiteSetting.exists({ key: migrationKey })) return;
+
   for (const category of initialCategories) {
     const isWorkspaceCategory = category.id === 'setup-workspace';
     const aliases = isWorkspaceCategory
@@ -139,10 +172,9 @@ async function migrateCategoryOrderAndCodingGear() {
       ...(!isWorkspaceCategory ? { $setOnInsert: categoryFields } : {})
     };
 
-    await Category.updateOne(
+    await upsertIfMissing(Category,
       { $or: [{ id: { $in: aliases } }, { slug: { $in: aliases } }, { name: { $in: aliases } }] },
-      updates,
-      { upsert: true }
+      updates
     );
   }
 
@@ -150,6 +182,10 @@ async function migrateCategoryOrderAndCodingGear() {
     { category: { $in: ['coding-gear', 'Coding Gear'] } },
     { $set: { category: 'setup-workspace', categoryName: 'Setup & Workspace' } }
   );
+
+  await upsertIfMissing(SiteSetting, { key: migrationKey }, {
+    $setOnInsert: { key: migrationKey, value: { completedAt: new Date() } }
+  });
 }
 
 async function migrateProductOrdering() {
@@ -179,23 +215,37 @@ async function migrateProductOrdering() {
       await Product.updateOne({ id: product.id }, { $set: { setupOrder: nextSetupOrder } });
     }
 
-    await SiteSetting.create({ key: migrationKey, value: { completedAt: new Date() } });
+    await upsertIfMissing(SiteSetting, { key: migrationKey }, {
+      $setOnInsert: { key: migrationKey, value: { completedAt: new Date() } }
+    });
   }
 
   const [featuredMax, setupMax] = await Promise.all([
     Product.findOne({ featuredOrder: { $ne: null } }).sort({ featuredOrder: -1 }).select('featuredOrder').lean(),
     Product.findOne({ setupOrder: { $ne: null } }).sort({ setupOrder: -1 }).select('setupOrder').lean()
   ]);
-  await SiteSetting.findOneAndUpdate(
-    { key: 'product_order_counters' },
-    {
-      $max: {
-        'value.featuredOrder': featuredMax?.featuredOrder || 0,
-        'value.setupOrder': setupMax?.setupOrder || 0
+  const counterKey = 'product_order_counters';
+  const currentCounters = await SiteSetting.findOne({ key: counterKey }).lean();
+  const maxFeaturedOrder = featuredMax?.featuredOrder || 0;
+  const maxSetupOrder = setupMax?.setupOrder || 0;
+  if (!currentCounters) {
+    await upsertIfMissing(SiteSetting, { key: counterKey }, {
+      $setOnInsert: {
+        key: counterKey,
+        value: { featuredOrder: maxFeaturedOrder, setupOrder: maxSetupOrder }
       }
-    },
-    { upsert: true, returnDocument: 'after' }
-  );
+    });
+  } else if (
+    (currentCounters.value?.featuredOrder || 0) < maxFeaturedOrder ||
+    (currentCounters.value?.setupOrder || 0) < maxSetupOrder
+  ) {
+    await SiteSetting.updateOne({ key: counterKey }, {
+      $max: {
+        'value.featuredOrder': maxFeaturedOrder,
+        'value.setupOrder': maxSetupOrder
+      }
+    });
+  }
 }
 
 async function reserveProductOrder(counterField) {
@@ -213,29 +263,53 @@ function nextMemoryProductOrder(field) {
 
 async function seedMongoIfEmpty() {
   if (!isMongoConnected) return;
-  try {
-    const productCount = await Product.countDocuments();
-    if (productCount === 0) {
-      console.log('Seeding initial products into MongoDB...');
-      await Product.insertMany(initialProducts);
+  const seedKey = 'initial_data_seed_v1';
+  let seedState = await SiteSetting.findOne({ key: seedKey }).lean();
+
+  if (seedState?.value?.status !== 'complete') {
+    if (!seedState) {
+      const [productCount, categoryCount, storeCount] = await Promise.all([
+        Product.countDocuments(),
+        Category.countDocuments(),
+        Store.countDocuments()
+      ]);
+      const plan = {
+        products: productCount === 0,
+        categories: categoryCount === 0,
+        stores: storeCount === 0
+      };
+      await upsertIfMissing(SiteSetting, { key: seedKey }, {
+        $setOnInsert: { key: seedKey, value: { status: 'running', plan } }
+      });
+      seedState = await SiteSetting.findOne({ key: seedKey }).lean();
     }
 
-    const catCount = await Category.countDocuments();
-    if (catCount === 0) {
-      await Category.insertMany(initialCategories);
+    const plan = seedState?.value?.plan || {};
+    if (plan.products) {
+      await Promise.all(initialProducts.map((product) =>
+        upsertIfMissing(Product, { id: product.id }, { $setOnInsert: product })
+      ));
+    }
+    if (plan.categories) {
+      await Promise.all(initialCategories.map((category) =>
+        upsertIfMissing(Category, { id: category.id }, { $setOnInsert: category })
+      ));
+    }
+    if (plan.stores) {
+      await Promise.all(initialStores.map((store) =>
+        upsertIfMissing(Store, { id: store.id }, { $setOnInsert: store })
+      ));
     }
 
-    const storeCount = await Store.countDocuments();
-    if (storeCount === 0) {
-      await Store.insertMany(initialStores);
-    }
+    await SiteSetting.updateOne({ key: seedKey }, {
+      $set: { 'value.status': 'complete', 'value.completedAt': new Date() }
+    });
+  }
 
-    const setting = await SiteSetting.findOne({ key: 'main_config' });
-    if (!setting) {
-      await SiteSetting.create({ key: 'main_config', value: defaultSiteConfig });
-    }
-  } catch (e) {
-    console.warn('Error during MongoDB seeding:', e.message);
+  if (!(await SiteSetting.exists({ key: 'main_config' }))) {
+    await upsertIfMissing(SiteSetting, { key: 'main_config' }, {
+      $setOnInsert: { key: 'main_config', value: defaultSiteConfig }
+    });
   }
 }
 

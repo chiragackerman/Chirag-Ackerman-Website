@@ -2,7 +2,7 @@ import express from 'express';
 import mongoose from 'mongoose';
 import { dbService } from '../services/dbService.js';
 import { setupTourTags } from '../../src/data/setupTourTags.js';
-import { uploadImage, isCloudinaryConfigured } from '../services/uploadService.js';
+import { createCloudinaryUploadSignature, uploadImage, isCloudinaryConfigured } from '../services/uploadService.js';
 import {
   createAdminSession,
   destroyAdminSession,
@@ -100,6 +100,17 @@ function recordFailedLogin(ip) {
 }
 
 // ---------------- IMAGE UPLOAD ----------------
+router.post('/upload/signature', requireAdmin, requireSameOrigin, (req, res) => {
+  try {
+    res.json(createCloudinaryUploadSignature(req.body || {}));
+  } catch (err) {
+    const status = err.message.includes('must be configured') || err.message.includes('credentials are incomplete')
+      ? 503
+      : 400;
+    res.status(status).json({ error: err.message });
+  }
+});
+
 router.post('/upload/image', requireAdmin, requireSameOrigin, async (req, res) => {
   try {
     const { dataUrl, fileName, mimeType } = req.body;
