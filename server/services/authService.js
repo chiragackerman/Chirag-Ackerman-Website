@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
+import mongoose from 'mongoose';
 import { Admin } from '../models/Admin.js';
 import { AdminSession } from '../models/AdminSession.js';
 
@@ -26,46 +27,63 @@ export async function ensureAdminAccount() {
   const config = getAuthConfig();
   if (!config.valid) return config;
 
-  const email = process.env.ADMIN_EMAIL.trim().toLowerCase();
-  let existing = await Admin.findOne({ email }).select('+passwordHash');
-  if (!existing) {
-    const passwordHash = await bcrypt.hash(process.env.ADMIN_PASSWORD, BCRYPT_ROUNDS);
-    try {
-      await Admin.updateOne(
-        { email },
-        {
-          $setOnInsert: {
-            email,
-            name: process.env.ADMIN_NAME?.trim() || 'Site Administrator',
-            passwordHash,
-            role: 'superadmin',
-            isActive: true
-          }
-        },
-        { upsert: true, runValidators: true }
-      );
-    } catch (error) {
-      if (error.code !== 11000) throw error;
+  if (mongoose.connection.readyState !== 1) {
+    return { valid: false, error: 'Database is not connected to initialize admin account.' };
+  }
+
+  try {
+    const email = process.env.ADMIN_EMAIL.trim().toLowerCase();
+    let existing = await Admin.findOne({ email }).select('+passwordHash');
+    if (!existing) {
+      const passwordHash = await bcrypt.hash(process.env.ADMIN_PASSWORD, BCRYPT_ROUNDS);
+      try {
+        await Admin.updateOne(
+          { email },
+          {
+            $setOnInsert: {
+              email,
+              name: process.env.ADMIN_NAME?.trim() || 'Site Administrator',
+              passwordHash,
+              role: 'superadmin',
+              isActive: true
+            }
+          },
+          { upsert: true, runValidators: true }
+        );
+      } catch (error) {
+        if (error.code !== 11000) throw error;
+      }
+      existing = await Admin.findOne({ email }).select('+passwordHash');
     }
-    existing = await Admin.findOne({ email }).select('+passwordHash');
-  }
 
-  if (!existing) {
-    throw new Error('Admin account initialization did not produce an account.');
-  }
+    if (!existing) {
+      throw new Error('Admin account initialization did not produce an account.');
+    }
 
-  if (!existing.passwordHash) {
-    existing.passwordHash = await bcrypt.hash(process.env.ADMIN_PASSWORD, BCRYPT_ROUNDS);
-    existing.role = 'superadmin';
-    existing.isActive = true;
-    await existing.save();
+    if (!existing.passwordHash) {
+      existing.passwordHash = await bcrypt.hash(process.env.ADMIN_PASSWORD, BCRYPT_ROUNDS);
+      existing.role = 'superadmin';
+      existing.isActive = true;
+      await existing.save();
+    }
+  } catch (err) {
+    console.error('Admin account initialization error:', err.message);
+    throw err;
   }
 
   return { valid: true };
 }
 
+function getSessionSecret() {
+  return process.env.SESSION_SECRET;
+}
+
 function hashSessionToken(token) {
-  return crypto.createHmac('sha256', process.env.SESSION_SECRET).update(token).digest('hex');
+  const secret = getSessionSecret();
+  if (!secret) {
+    throw new Error('SESSION_SECRET is not configured.');
+  }
+  return crypto.createHmac('sha256', secret).update(token).digest('hex');
 }
 
 export function getSessionCookieOptions() {
@@ -74,7 +92,7 @@ export function getSessionCookieOptions() {
     'Path=/',
     'HttpOnly',
     'SameSite=Lax',
-    process.env.NODE_ENV === 'production' ? 'Secure' : '',
+    process.env.NODE_ENV === 'production' || process.env.VERCEL === '1' ? 'Secure' : '',
     'Max-Age=0'
   ].filter(Boolean).join('; ');
 }
@@ -82,8 +100,10 @@ export function getSessionCookieOptions() {
 export async function createAdminSession(admin) {
   const token = crypto.randomBytes(32).toString('base64url');
   const expiresAt = new Date(Date.now() + SESSION_MAX_AGE_MS);
+  const tokenHash = hashSessionToken(token);
+
   await AdminSession.create({
-    tokenHash: hashSessionToken(token),
+    tokenHash,
     adminId: admin._id,
     expiresAt
   });
@@ -93,7 +113,7 @@ export async function createAdminSession(admin) {
     'Path=/',
     'HttpOnly',
     'SameSite=Lax',
-    process.env.NODE_ENV === 'production' ? 'Secure' : '',
+    process.env.NODE_ENV === 'production' || process.env.VERCEL === '1' ? 'Secure' : '',
     `Max-Age=${Math.floor(SESSION_MAX_AGE_MS / 1000)}`
   ].filter(Boolean).join('; ');
 
@@ -110,25 +130,55 @@ export async function findAdminSession(req) {
   const token = readSessionToken(req);
   if (!token) return null;
 
-  const session = await AdminSession.findOne({
-    tokenHash: hashSessionToken(token),
-    expiresAt: { $gt: new Date() }
-  }).populate('adminId');
+  try {
+    const tokenHash = hashSessionToken(token);
 
-  if (!session?.adminId?.isActive) return null;
-  return { session, admin: session.adminId };
+    if (mongoose.connection.readyState !== 1) {
+      return null;
+    }
+
+    const session = await AdminSession.findOne({
+      tokenHash,
+      expiresAt: { $gt: new Date() }
+    }).populate('adminId');
+
+    if (session?.adminId?.isActive) {
+      return { session, admin: session.adminId };
+    }
+  } catch (e) {
+    console.error('Session validation error:', e.message);
+  }
+
+  return null;
 }
 
 export async function destroyAdminSession(req) {
   const token = readSessionToken(req);
-  if (token) await AdminSession.deleteOne({ tokenHash: hashSessionToken(token) });
+  if (token && mongoose.connection.readyState === 1) {
+    try {
+      const tokenHash = hashSessionToken(token);
+      await AdminSession.deleteOne({ tokenHash });
+    } catch {
+      // ignore deletion errors
+    }
+  }
 }
 
 export async function verifyAdminCredentials(email, password) {
   if (!email || !password) return null;
-  const admin = await Admin.findOne({ email: String(email).trim().toLowerCase(), isActive: true }).select('+passwordHash');
-  if (!admin || !(await bcrypt.compare(String(password), admin.passwordHash))) return null;
-  return admin;
+  const normalizedEmail = String(email).trim().toLowerCase();
+  const inputPassword = String(password);
+
+  if (mongoose.connection.readyState !== 1) {
+    throw new Error('Database is offline. MongoDB Atlas connection is required.');
+  }
+
+  const admin = await Admin.findOne({ email: normalizedEmail, isActive: true }).select('+passwordHash');
+  if (admin && admin.passwordHash && (await bcrypt.compare(inputPassword, admin.passwordHash))) {
+    return admin;
+  }
+
+  return null;
 }
 
 export function publicAdmin(admin) {

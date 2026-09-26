@@ -55,6 +55,55 @@ export async function fetchProductById(id) {
 }
 
 export async function uploadProductImage(file) {
+  // 1. Attempt secure signed direct-to-Cloudinary upload
+  try {
+    const signatureResponse = await fetch(`${API_BASE}/upload/signature`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fileName: file.name, mimeType: file.type })
+    });
+
+    if (signatureResponse.ok) {
+      const signature = await signatureResponse.json();
+      const uploadData = new FormData();
+      uploadData.append('file', file);
+      uploadData.append('api_key', signature.apiKey);
+      uploadData.append('timestamp', String(signature.timestamp));
+      uploadData.append('folder', signature.folder);
+      uploadData.append('public_id', signature.public_id);
+      uploadData.append('signature', signature.signature);
+
+      const uploadResponse = await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(signature.cloudName)}/image/upload`, {
+        method: 'POST',
+        body: uploadData
+      });
+      const uploadResult = await uploadResponse.json().catch(() => ({}));
+      if (!uploadResponse.ok) {
+        throw new Error(uploadResult.error?.message || 'Cloudinary image upload failed');
+      }
+
+      return {
+        success: true,
+        url: uploadResult.secure_url,
+        imageUrl: uploadResult.secure_url,
+        provider: 'cloudinary',
+        publicId: uploadResult.public_id,
+        format: uploadResult.format
+      };
+    } else {
+      const err = await signatureResponse.json().catch(() => ({}));
+      if (signatureResponse.status !== 503) {
+        throw new Error(err.error || 'Could not authorize image upload');
+      }
+    }
+  } catch (err) {
+    if (err.message && !err.message.includes('must be configured') && !err.message.includes('Could not authorize')) {
+      throw err;
+    }
+  }
+
+  // 2. Dev-only local server storage fallback if Cloudinary is not configured
   if (import.meta.env.DEV) {
     const dataUrl = await new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -75,42 +124,7 @@ export async function uploadProductImage(file) {
     return await res.json();
   }
 
-  const signatureResponse = await fetch(`${API_BASE}/upload/signature`, {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fileName: file.name, mimeType: file.type })
-  });
-  const signature = await signatureResponse.json().catch(() => ({}));
-  if (!signatureResponse.ok) {
-    throw new Error(signature.error || 'Could not authorize Cloudinary upload');
-  }
-
-  const uploadData = new FormData();
-  uploadData.append('file', file);
-  uploadData.append('api_key', signature.apiKey);
-  uploadData.append('timestamp', String(signature.timestamp));
-  uploadData.append('folder', signature.folder);
-  uploadData.append('public_id', signature.public_id);
-  uploadData.append('signature', signature.signature);
-
-  const uploadResponse = await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(signature.cloudName)}/image/upload`, {
-    method: 'POST',
-    body: uploadData
-  });
-  const uploadResult = await uploadResponse.json().catch(() => ({}));
-  if (!uploadResponse.ok) {
-    throw new Error(uploadResult.error?.message || 'Cloudinary image upload failed');
-  }
-
-  return {
-    success: true,
-    url: uploadResult.secure_url,
-    imageUrl: uploadResult.secure_url,
-    provider: 'cloudinary',
-    publicId: uploadResult.public_id,
-    format: uploadResult.format
-  };
+  throw new Error('Cloudinary must be configured in environment variables for image uploads.');
 }
 
 export async function createProduct(productData, token) {

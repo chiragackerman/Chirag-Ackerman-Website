@@ -1,4 +1,8 @@
 import mongoose from 'mongoose';
+
+// CRITICAL: fail fast, don't hang when MongoDB is unreachable
+mongoose.set('bufferCommands', false);
+
 import { initialProducts } from '../../src/data/initialProducts.js';
 import { initialCategories } from '../../src/data/initialCategories.js';
 import { initialStores } from '../../src/data/initialStores.js';
@@ -78,8 +82,27 @@ function initializeMemoryProductOrders(flagField, orderField) {
 initializeMemoryProductOrders('featured', 'featuredOrder');
 initializeMemoryProductOrders('showInMySetup', 'setupOrder');
 
+let lastConnectionAttempt = 0;
+const CONNECTION_COOLDOWN_MS = 20000;
+
 export function initDatabase() {
-  if (!databaseInitialization) databaseInitialization = initializeDatabase();
+  if (mongoose.connection.readyState === 1) {
+    isMongoConnected = true;
+    return Promise.resolve();
+  }
+  if (mongoose.connection.readyState === 2) {
+    return databaseInitialization || Promise.resolve();
+  }
+  const now = Date.now();
+  if (now - lastConnectionAttempt < CONNECTION_COOLDOWN_MS && !isVercelDeployment) {
+    return Promise.resolve();
+  }
+  lastConnectionAttempt = now;
+  if (!databaseInitialization) {
+    databaseInitialization = initializeDatabase().finally(() => {
+      databaseInitialization = null;
+    });
+  }
   return databaseInitialization;
 }
 
@@ -89,32 +112,23 @@ async function initializeDatabase() {
     try {
       console.log('Attempting MongoDB connection...');
       await mongoose.connect(mongoUri, {
-        serverSelectionTimeoutMS: 3000
+        serverSelectionTimeoutMS: 5000
       });
       isMongoConnected = true;
       console.log('Connected to MongoDB successfully.');
-      await seedMongoIfEmpty();
-      await migrateMonitorCategory();
-      await migrateCategoryOrderAndCodingGear();
-      await migrateProductOrdering();
-      const authConfig = await ensureAdminAccount();
-      if (!authConfig.valid) {
-        const details = authConfig.missing?.length
-          ? `Missing server-side environment variables: ${authConfig.missing.join(', ')}`
-          : authConfig.error;
-        console.warn(`Admin authentication is unavailable. ${details}`);
-      }
+      await runSafeDatabaseInitialization();
       return;
     } catch (err) {
       isMongoConnected = false;
-      if (isVercelDeployment) {
-        console.error('MongoDB initialization failed in Vercel runtime:', err.message);
+      databaseInitialization = null;
+      if (isVercelDeployment || process.env.NODE_ENV === 'production') {
+        console.error('MongoDB initialization failed in Vercel/production runtime:', err.message);
         throw err;
       }
-      console.warn('MongoDB connection failed. Operating in high-reliability memory storage mode:', err.message);
+      console.warn('MongoDB connection failed. Operating in local memory fallback mode:', err.message);
     }
   } else {
-    if (isVercelDeployment) {
+    if (isVercelDeployment || process.env.NODE_ENV === 'production') {
       throw new Error('MONGODB_URI must be configured for the Vercel deployment.');
     }
     console.log('No MONGODB_URI provided in environment. Operating in memory repository mode.');
@@ -126,6 +140,75 @@ async function initializeDatabase() {
       ? `Missing server-side environment variables: ${authConfig.missing.join(', ')}`
       : authConfig.error;
     console.warn(`Admin authentication is unavailable. ${details}`);
+  }
+}
+
+async function runSafeDatabaseInitialization() {
+  const seedKey = 'initial_data_seed_v1';
+  const existingSeed = await SiteSetting.findOne({ key: seedKey }).lean();
+
+  if (existingSeed?.value?.status !== 'complete') {
+    const [existingProduct, existingCategory, existingStore] = await Promise.all([
+      Product.exists({}),
+      Category.exists({}),
+      Store.exists({})
+    ]);
+
+    if (existingProduct || isVercelDeployment || process.env.NODE_ENV === 'production') {
+      console.log('Existing data found or production environment detected; skipping template seeding.');
+      await SiteSetting.updateOne(
+        { key: seedKey },
+        {
+          $set: {
+            key: seedKey,
+            value: {
+              status: 'complete',
+              skipped: true,
+              reason: existingProduct ? 'existing_data_present' : 'production_environment',
+              completedAt: new Date()
+            }
+          }
+        },
+        { upsert: true }
+      );
+    } else {
+      console.log('Seeding initial data for fresh local development database...');
+      await Promise.all([
+        ...initialProducts.map((product) =>
+          upsertIfMissing(Product, { id: product.id }, { $setOnInsert: product })
+        ),
+        ...initialCategories.map((category) =>
+          upsertIfMissing(Category, { id: category.id }, { $setOnInsert: category })
+        ),
+        ...initialStores.map((store) =>
+          upsertIfMissing(Store, { id: store.id }, { $setOnInsert: store })
+        )
+      ]);
+
+      await SiteSetting.updateOne(
+        { key: seedKey },
+        { $set: { 'value.status': 'complete', 'value.completedAt': new Date() } },
+        { upsert: true }
+      );
+    }
+  }
+
+  if (!(await SiteSetting.exists({ key: 'main_config' }))) {
+    await upsertIfMissing(SiteSetting, { key: 'main_config' }, {
+      $setOnInsert: { key: 'main_config', value: defaultSiteConfig }
+    });
+  }
+
+  await migrateMonitorCategory();
+  await migrateCategoryOrderAndCodingGear();
+  await migrateProductOrdering();
+
+  const authConfig = await ensureAdminAccount();
+  if (!authConfig.valid) {
+    const details = authConfig.missing?.length
+      ? `Missing server-side environment variables: ${authConfig.missing.join(', ')}`
+      : authConfig.error;
+    console.warn(`Admin authentication note: ${details}`);
   }
 }
 
@@ -261,58 +344,6 @@ function nextMemoryProductOrder(field) {
   return memoryStore.products.reduce((maxOrder, product) => Math.max(maxOrder, product[field] || 0), 0) + 1;
 }
 
-async function seedMongoIfEmpty() {
-  if (!isMongoConnected) return;
-  const seedKey = 'initial_data_seed_v1';
-  let seedState = await SiteSetting.findOne({ key: seedKey }).lean();
-
-  if (seedState?.value?.status !== 'complete') {
-    if (!seedState) {
-      const [productCount, categoryCount, storeCount] = await Promise.all([
-        Product.countDocuments(),
-        Category.countDocuments(),
-        Store.countDocuments()
-      ]);
-      const plan = {
-        products: productCount === 0,
-        categories: categoryCount === 0,
-        stores: storeCount === 0
-      };
-      await upsertIfMissing(SiteSetting, { key: seedKey }, {
-        $setOnInsert: { key: seedKey, value: { status: 'running', plan } }
-      });
-      seedState = await SiteSetting.findOne({ key: seedKey }).lean();
-    }
-
-    const plan = seedState?.value?.plan || {};
-    if (plan.products) {
-      await Promise.all(initialProducts.map((product) =>
-        upsertIfMissing(Product, { id: product.id }, { $setOnInsert: product })
-      ));
-    }
-    if (plan.categories) {
-      await Promise.all(initialCategories.map((category) =>
-        upsertIfMissing(Category, { id: category.id }, { $setOnInsert: category })
-      ));
-    }
-    if (plan.stores) {
-      await Promise.all(initialStores.map((store) =>
-        upsertIfMissing(Store, { id: store.id }, { $setOnInsert: store })
-      ));
-    }
-
-    await SiteSetting.updateOne({ key: seedKey }, {
-      $set: { 'value.status': 'complete', 'value.completedAt': new Date() }
-    });
-  }
-
-  if (!(await SiteSetting.exists({ key: 'main_config' }))) {
-    await upsertIfMissing(SiteSetting, { key: 'main_config' }, {
-      $setOnInsert: { key: 'main_config', value: defaultSiteConfig }
-    });
-  }
-}
-
 // Data Access Methods
 export const dbService = {
   // Products
@@ -336,6 +367,11 @@ export const dbService = {
       return await Product.find(query).sort(order);
     }
 
+    if (isVercelDeployment || process.env.NODE_ENV === 'production') {
+      throw new Error('Database is offline. MongoDB Atlas connection is required.');
+    }
+
+    console.warn('[dbService] Warning: Serving local memory fallback products because MongoDB is not connected.');
     let results = [...memoryStore.products];
     if (filters.category && filters.category !== 'all') {
       results = results.filter(p => p.category === filters.category);

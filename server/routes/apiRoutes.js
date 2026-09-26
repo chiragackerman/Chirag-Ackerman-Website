@@ -45,16 +45,32 @@ function validateSetupSettings(data, existing = {}) {
 
 function requireDatabase(req, res, next) {
   if (mongoose.connection.readyState !== 1) {
-    return res.status(503).json({ error: 'Authentication service is unavailable' });
+    return res.status(503).json({ error: 'Database service is unavailable. Please verify MongoDB Atlas connection.' });
   }
   next();
 }
 
+// ---------------- SYSTEM HEALTH ----------------
+router.get('/health', (req, res) => {
+  const isMongoReady = mongoose.connection.readyState === 1;
+  const isCloudinaryReady = isCloudinaryConfigured();
+  res.json({
+    status: isMongoReady ? 'ok' : 'database_unavailable',
+    database: {
+      type: 'MongoDB Atlas',
+      connected: isMongoReady,
+      readyState: mongoose.connection.readyState
+    },
+    media: {
+      provider: isCloudinaryReady ? 'cloudinary' : 'local_fallback',
+      cloudinaryConfigured: isCloudinaryReady
+    },
+    environment: process.env.VERCEL === '1' ? 'vercel' : (process.env.NODE_ENV || 'development')
+  });
+});
+
 async function requireAdmin(req, res, next) {
   try {
-    if (mongoose.connection.readyState !== 1) {
-      return res.status(503).json({ error: 'Authentication service is unavailable' });
-    }
     const session = await findAdminSession(req);
     if (!session) {
       return res.status(401).json({ error: 'Unauthorized' });
