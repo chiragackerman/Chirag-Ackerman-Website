@@ -119,6 +119,15 @@ ${allUrls.map(u => `  <url>
   }
 });
 
+if (isVercelDeployment) {
+  const frontendDirectory = path.resolve(process.cwd(), 'public');
+  app.use(express.static(frontendDirectory));
+  app.get('*', (req, res, next) => {
+    if (path.extname(req.path)) return next();
+    res.sendFile(path.join(frontendDirectory, 'index.html'));
+  });
+}
+
 async function startServer() {
   // Initialize database in background on startup
   initDatabase().catch((err: any) => {
