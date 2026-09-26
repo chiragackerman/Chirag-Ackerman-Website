@@ -1,6 +1,7 @@
 import React from 'react';
 import { useSite } from '../context/SiteContext.jsx';
 import { Instagram, Mail, ArrowUpRight } from 'lucide-react';
+import { resolveLogoUrl } from '../utils/imageAssets.js';
 
 export default function Footer({ onNavigate }) {
   const { siteConfig } = useSite();
@@ -20,7 +21,7 @@ export default function Footer({ onNavigate }) {
             <div className="flex items-center gap-3">
               <div className="h-9 w-9 rounded-full overflow-hidden border border-purple-400/40 bg-[#171020] flex items-center justify-center shrink-0 shadow-sm">
                 <img
-                  src={siteConfig.logoUrl || '/src/assets/images/chirag_official_logo.jpg'}
+                  src={resolveLogoUrl(siteConfig.logoUrl)}
                   alt={`${siteConfig.creatorName} Official Logo`}
                   referrerPolicy="no-referrer"
                   className="w-full h-full object-cover object-center"

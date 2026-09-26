@@ -4,7 +4,7 @@
  */
 export const defaultSiteConfig = {
   creatorName: "Chirag Ackerman",
-  logoUrl: "/src/assets/images/chirag_official_logo.jpg",
+  logoUrl: "/chirag_official_logo.jpg",
   monogram: "CA",
   tagline: "Gaming • Coding • Tech • Creator",
   location: "Navi Mumbai, Maharashtra, India",

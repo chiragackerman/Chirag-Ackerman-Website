@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSite } from '../context/SiteContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { Search, Instagram, Menu, X, ShieldCheck } from 'lucide-react';
+import { resolveLogoUrl } from '../utils/imageAssets.js';
 
 export default function Navbar({ activeRoute, onNavigate }) {
   const { siteConfig } = useSite();
@@ -50,7 +51,7 @@ export default function Navbar({ activeRoute, onNavigate }) {
         >
           <div className="h-9 sm:h-10 w-9 sm:w-10 rounded-full overflow-hidden border border-purple-400/40 bg-[#171020] flex items-center justify-center shrink-0 shadow-sm group-hover:border-purple-400/80 transition-all duration-300">
             <img
-              src={siteConfig.logoUrl || '/src/assets/images/chirag_official_logo.jpg'}
+              src={resolveLogoUrl(siteConfig.logoUrl)}
               alt={`${siteConfig.creatorName} Official Logo`}
               referrerPolicy="no-referrer"
               className="w-full h-full object-cover object-center"

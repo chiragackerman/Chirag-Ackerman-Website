@@ -1,7 +1,7 @@
 import React from 'react';
 import { useSite } from '../context/SiteContext.jsx';
 import { ArrowRight, Monitor, Instagram, Sparkles } from 'lucide-react';
-const heroDeskImg = '/src/assets/images/Setup_Image.jpg';
+import setupImage from '../assets/images/Setup_Image.jpg';
 
 export default function Hero({ onNavigate }) {
   const { siteConfig } = useSite();
@@ -78,7 +78,7 @@ export default function Hero({ onNavigate }) {
               {/* Image */}
               <div className="aspect-[16/10] sm:aspect-[16/9] w-full overflow-hidden relative">
                 <img
-                  src={heroDeskImg}
+                  src={setupImage}
                   alt="Chirag Ackerman Dark Cinematic Battlestation Setup"
                   referrerPolicy="no-referrer"
                   className="w-full h-full object-cover object-center transform hover:scale-102 transition-transform duration-700"

@@ -1,5 +1,6 @@
 import React from 'react';
 import { useSite } from '../context/SiteContext.jsx';
+import logoImage from '../assets/images/chirag_official_logo.jpg';
 import Stats from '../components/Stats.jsx';
 import SEOHead from '../components/SEOHead.jsx';
 import {
@@ -14,8 +15,6 @@ import {
   ShieldCheck,
   Sparkles
 } from 'lucide-react';
-const heroDeskImg = '/src/assets/images/chirag_official_logo.jpg';
-
 export default function AboutPage({ onNavigate }) {
   const { siteConfig } = useSite();
 
@@ -89,7 +88,7 @@ export default function AboutPage({ onNavigate }) {
           <div className="relative rounded-2xl overflow-hidden border border-purple-500/20 bg-[#120D1A] purple-glow">
             <div className="aspect-[4/5] w-full overflow-hidden">
               <img
-                src={heroDeskImg}
+                src={logoImage}
                 alt="Chirag Ackerman Workspace & Studio"
                 referrerPolicy="no-referrer"
                 className="w-full h-full object-cover object-center"
