@@ -20,12 +20,18 @@ export const defaultSiteConfig = {
     subtitle: "Exploring the gear, setups and technology that power my creativity.",
     affiliateNote: "Some links may be affiliate links. I may earn a commission at no extra cost to you."
   },
-  stats: [
-    { label: "Followers", value: "3K+", description: "Instagram & Tech Community" },
-    { label: "Total Views", value: "2.1M+", description: "Shorts, Reels & Tech Showcases" },
-    { label: "Brand Collaborations", value: "12+", description: "Tech, Peripheral & Creator Brands" },
-    { label: "Content Focus", value: "GAMING • TECH • CODING", description: "Minimalist Desk Setups & Workflows" }
-  ],
+  followersValue: "3K+",
+  followersLabel: "Followers",
+  followersDescription: "Instagram & Tech Community",
+  totalViewsValue: "2.1M+",
+  totalViewsLabel: "Total Views",
+  totalViewsDescription: "Shorts, Reels & Tech Showcases",
+  brandCollaborationsValue: "12+",
+  brandCollaborationsLabel: "Brand Collaborations",
+  brandCollaborationsDescription: "Tech, Peripheral & Creator Brands",
+  contentFocusValue: "GAMING · TECH · CODING",
+  contentFocusLabel: "Content Focus",
+  contentFocusDescription: "Minimalist Desk Setups & Workflows",
   affiliateDisclosure: "Disclosure: Some links on this website are affiliate links. If you purchase through one of these links, I may earn a commission at no additional cost to you. I only recommend gear I genuinely use, test, or trust.",
   socials: [
     { name: "Instagram", handle: "@chirag.ackerman", url: "https://instagram.com/chirag.ackerman" },

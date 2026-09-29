@@ -44,6 +44,42 @@ import {
 } from 'lucide-react';
 import { formatPrice, formatDate } from '../utils/formatters.js';
 import { setupTourTags } from '../data/setupTourTags.js';
+import { defaultSiteConfig } from '../data/defaultSiteConfig.js';
+
+const creatorStatsGroups = [
+  {
+    title: 'Followers',
+    fields: [
+      ['Stat Value', 'followersValue'],
+      ['Stat Label', 'followersLabel'],
+      ['Stat Description', 'followersDescription']
+    ]
+  },
+  {
+    title: 'Total Views',
+    fields: [
+      ['Stat Value', 'totalViewsValue'],
+      ['Stat Label', 'totalViewsLabel'],
+      ['Stat Description', 'totalViewsDescription']
+    ]
+  },
+  {
+    title: 'Brand Collaborations',
+    fields: [
+      ['Stat Value', 'brandCollaborationsValue'],
+      ['Stat Label', 'brandCollaborationsLabel'],
+      ['Stat Description', 'brandCollaborationsDescription']
+    ]
+  },
+  {
+    title: 'Content Focus',
+    fields: [
+      ['Stat Value', 'contentFocusValue'],
+      ['Stat Label', 'contentFocusLabel'],
+      ['Stat Description', 'contentFocusDescription']
+    ]
+  }
+];
 
 export default function AdminDashboardPage({ onNavigate }) {
   const { adminUser, isAuthenticated, authLoading, login, logout } = useAuth();
@@ -1308,6 +1344,33 @@ export default function AdminDashboardPage({ onNavigate }) {
                     className="w-full px-3.5 py-2.5 rounded-xl bg-[#0B0710] border border-purple-500/20 text-white text-xs focus:outline-none focus:border-purple-400"
                   />
                 </div>
+              </div>
+            </div>
+
+            <div className="p-6 rounded-2xl bg-[#120D1A] border border-purple-500/15 space-y-4">
+              <h3 className="font-display font-bold text-base text-white">
+                Creator Stats
+              </h3>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {creatorStatsGroups.map((group) => (
+                  <div key={group.title} className="p-4 rounded-xl bg-[#0B0710]/50 border border-purple-500/15 space-y-3">
+                    <h4 className="font-display font-bold text-sm text-white">{group.title}</h4>
+                    {group.fields.map(([label, field]) => (
+                      <div key={field}>
+                        <label className="block text-xs font-semibold uppercase tracking-wider text-[#A8A0B8] mb-1">
+                          {label}
+                        </label>
+                        <input
+                          type="text"
+                          value={settingsForm[field] || defaultSiteConfig[field]}
+                          onChange={(e) => setSettingsForm({ ...settingsForm, [field]: e.target.value })}
+                          className="w-full px-3.5 py-2.5 rounded-xl bg-[#0B0710] border border-purple-500/20 text-white text-xs focus:outline-none focus:border-purple-400"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ))}
               </div>
             </div>
 

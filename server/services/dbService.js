@@ -85,6 +85,29 @@ initializeMemoryProductOrders('showInMySetup', 'setupOrder');
 let lastConnectionAttempt = 0;
 const CONNECTION_COOLDOWN_MS = 20000;
 
+function mergeSiteConfig(currentConfig = {}, updates = {}) {
+  const safeUpdates = updates && typeof updates === 'object' && !Array.isArray(updates)
+    ? updates
+    : {};
+  const mergedConfig = { ...defaultSiteConfig, ...currentConfig };
+
+  for (const [key, value] of Object.entries(safeUpdates)) {
+    if (value !== undefined && value !== null) {
+      mergedConfig[key] = value;
+    }
+  }
+
+  for (const [key, defaultValue] of Object.entries(defaultSiteConfig)) {
+    if (typeof defaultValue !== 'string') continue;
+
+    const updatedValue = typeof safeUpdates[key] === 'string' ? safeUpdates[key].trim() : '';
+    const currentValue = typeof currentConfig[key] === 'string' ? currentConfig[key].trim() : '';
+    mergedConfig[key] = updatedValue || currentValue || defaultValue;
+  }
+
+  return mergedConfig;
+}
+
 export function initDatabase() {
   if (mongoose.connection.readyState === 1) {
     isMongoConnected = true;
@@ -539,20 +562,21 @@ export const dbService = {
   async getSiteConfig() {
     if (isMongoConnected) {
       const doc = await SiteSetting.findOne({ key: 'main_config' });
-      return doc ? doc.value : defaultSiteConfig;
+      return mergeSiteConfig(doc?.value);
     }
-    return memoryStore.siteConfig;
+    return mergeSiteConfig(memoryStore.siteConfig);
   },
 
   async updateSiteConfig(newConfig) {
+    const updatedConfig = mergeSiteConfig(await this.getSiteConfig(), newConfig);
     if (isMongoConnected) {
       await SiteSetting.findOneAndUpdate(
         { key: 'main_config' },
-        { key: 'main_config', value: newConfig, updatedBy: 'admin' },
+        { key: 'main_config', value: updatedConfig, updatedBy: 'admin' },
         { upsert: true, new: true }
       );
     }
-    memoryStore.siteConfig = { ...memoryStore.siteConfig, ...newConfig };
+    memoryStore.siteConfig = updatedConfig;
     return memoryStore.siteConfig;
   },
 

@@ -19,16 +19,21 @@ export function SiteProvider({ children }) {
   const [categories, setCategories] = useState([]);
   const [stores, setStores] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [siteConfigLoaded, setSiteConfigLoaded] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
+      const siteConfigRequest = fetchSiteConfig().then((configData) => {
+        setSiteConfig(configData || defaultSiteConfig);
+        setSiteConfigLoaded(true);
+        return configData;
+      });
       const [configData, prodsData, catsData, storesData] = await Promise.all([
-        fetchSiteConfig(),
+        siteConfigRequest,
         fetchProducts(),
         fetchCategories(),
         fetchStores()
       ]);
-      setSiteConfig(configData || defaultSiteConfig);
       setProducts(prodsData || []);
       setCategories([...(catsData || [])].sort((a, b) =>
         (categoryOrder.get(a.slug || a.id) ?? Number.MAX_SAFE_INTEGER) -
@@ -49,6 +54,7 @@ export function SiteProvider({ children }) {
   const updateConfig = async (newConfig, token) => {
     const updated = await saveSiteConfig(newConfig, token);
     setSiteConfig(updated);
+    setSiteConfigLoaded(true);
     return updated;
   };
 
@@ -71,6 +77,7 @@ export function SiteProvider({ children }) {
         categories,
         stores,
         loading,
+        siteConfigLoaded,
         refreshData: loadData,
         updateConfig,
         trackAndOpenAffiliate
