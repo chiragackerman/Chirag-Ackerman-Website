@@ -1,8 +1,8 @@
 import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
-import mongoose from 'mongoose';
 import { Admin } from '../models/Admin.js';
 import { AdminSession } from '../models/AdminSession.js';
+import { isMongoConnected } from './mongoConnection.js';
 
 const SESSION_COOKIE = 'admin_session';
 const SESSION_MAX_AGE_MS = 8 * 60 * 60 * 1000;
@@ -27,7 +27,7 @@ export async function ensureAdminAccount() {
   const config = getAuthConfig();
   if (!config.valid) return config;
 
-  if (mongoose.connection.readyState !== 1) {
+  if (!isMongoConnected()) {
     return { valid: false, error: 'Database is not connected to initialize admin account.' };
   }
 
@@ -133,7 +133,7 @@ export async function findAdminSession(req) {
   try {
     const tokenHash = hashSessionToken(token);
 
-    if (mongoose.connection.readyState !== 1) {
+    if (!isMongoConnected()) {
       return null;
     }
 
@@ -154,7 +154,7 @@ export async function findAdminSession(req) {
 
 export async function destroyAdminSession(req) {
   const token = readSessionToken(req);
-  if (token && mongoose.connection.readyState === 1) {
+  if (token && isMongoConnected()) {
     try {
       const tokenHash = hashSessionToken(token);
       await AdminSession.deleteOne({ tokenHash });
@@ -169,7 +169,7 @@ export async function verifyAdminCredentials(email, password) {
   const normalizedEmail = String(email).trim().toLowerCase();
   const inputPassword = String(password);
 
-  if (mongoose.connection.readyState !== 1) {
+  if (!isMongoConnected()) {
     throw new Error('Database is offline. MongoDB Atlas connection is required.');
   }
 

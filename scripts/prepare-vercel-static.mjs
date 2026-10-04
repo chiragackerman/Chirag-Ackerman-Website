@@ -7,6 +7,8 @@ const projectRoot = path.resolve(scriptDirectory, '..');
 const buildDirectory = path.join(projectRoot, 'dist');
 const publicDirectory = path.join(projectRoot, 'public');
 const uploadsDirectory = path.join(projectRoot, 'uploads');
+const sourceImagesDirectory = path.join(projectRoot, 'src', 'assets', 'images');
+const deployedImagesDirectory = path.join(publicDirectory, 'src', 'assets', 'images');
 
 if (!fs.existsSync(path.join(buildDirectory, 'index.html'))) {
   throw new Error('Vite build output is missing. Run npm run build before preparing Vercel assets.');
@@ -19,4 +21,8 @@ fs.cpSync(buildDirectory, publicDirectory, { recursive: true, force: true });
 
 if (fs.existsSync(uploadsDirectory)) {
   fs.cpSync(uploadsDirectory, path.join(publicDirectory, 'uploads'), { recursive: true, force: true });
+}
+
+if (fs.existsSync(sourceImagesDirectory)) {
+  fs.cpSync(sourceImagesDirectory, deployedImagesDirectory, { recursive: true, force: true });
 }

@@ -1,6 +1,6 @@
 import express from 'express';
-import mongoose from 'mongoose';
 import { dbService } from '../services/dbService.js';
+import { getMongoConnectionState, isMongoConnected } from '../services/mongoConnection.js';
 import { setupTourTags } from '../../src/data/setupTourTags.js';
 import { createCloudinaryUploadSignature, uploadImage, isCloudinaryConfigured } from '../services/uploadService.js';
 import {
@@ -44,7 +44,7 @@ function validateSetupSettings(data, existing = {}) {
 }
 
 function requireDatabase(req, res, next) {
-  if (mongoose.connection.readyState !== 1) {
+  if (!isMongoConnected()) {
     return res.status(503).json({ error: 'Database service is unavailable. Please verify MongoDB Atlas connection.' });
   }
   next();
@@ -52,14 +52,14 @@ function requireDatabase(req, res, next) {
 
 // ---------------- SYSTEM HEALTH ----------------
 router.get('/health', (req, res) => {
-  const isMongoReady = mongoose.connection.readyState === 1;
+  const isMongoReady = isMongoConnected();
   const isCloudinaryReady = isCloudinaryConfigured();
   res.json({
     status: isMongoReady ? 'ok' : 'database_unavailable',
     database: {
       type: 'MongoDB Atlas',
       connected: isMongoReady,
-      readyState: mongoose.connection.readyState
+      readyState: getMongoConnectionState()
     },
     media: {
       provider: isCloudinaryReady ? 'cloudinary' : 'local_fallback',

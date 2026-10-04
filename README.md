@@ -166,8 +166,6 @@ The production stack uses:
 - Cloudinary
 - Vercel
 
----
-
 ## 🛠️ Tech Stack
 
 ### Frontend

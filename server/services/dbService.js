@@ -1,8 +1,3 @@
-import mongoose from 'mongoose';
-
-// CRITICAL: fail fast, don't hang when MongoDB is unreachable
-mongoose.set('bufferCommands', false);
-
 import { initialProducts } from '../../src/data/initialProducts.js';
 import { initialCategories } from '../../src/data/initialCategories.js';
 import { initialStores } from '../../src/data/initialStores.js';
@@ -14,9 +9,10 @@ import { Click } from '../models/Click.js';
 import { SiteSetting } from '../models/SiteSetting.js';
 import { CollaborationInquiry } from '../models/CollaborationInquiry.js';
 import { ensureAdminAccount, getAuthConfig } from './authService.js';
+import { connectToMongoDB, isMongoConnected } from './mongoConnection.js';
 
-let isMongoConnected = false;
 let databaseInitialization;
+let databaseInitialized = false;
 const isVercelDeployment = process.env.VERCEL === '1' && process.env.VERCEL_ENV !== 'development';
 
 async function upsertIfMissing(Model, filter, update) {
@@ -82,9 +78,6 @@ function initializeMemoryProductOrders(flagField, orderField) {
 initializeMemoryProductOrders('featured', 'featuredOrder');
 initializeMemoryProductOrders('showInMySetup', 'setupOrder');
 
-let lastConnectionAttempt = 0;
-const CONNECTION_COOLDOWN_MS = 20000;
-
 function mergeSiteConfig(currentConfig = {}, updates = {}) {
   const safeUpdates = updates && typeof updates === 'object' && !Array.isArray(updates)
     ? updates
@@ -109,52 +102,40 @@ function mergeSiteConfig(currentConfig = {}, updates = {}) {
 }
 
 export function initDatabase() {
-  if (mongoose.connection.readyState === 1) {
-    isMongoConnected = true;
-    return Promise.resolve();
-  }
-  if (mongoose.connection.readyState === 2) {
-    return databaseInitialization || Promise.resolve();
-  }
-  const now = Date.now();
-  if (now - lastConnectionAttempt < CONNECTION_COOLDOWN_MS && !isVercelDeployment) {
-    return Promise.resolve();
-  }
-  lastConnectionAttempt = now;
-  if (!databaseInitialization) {
-    databaseInitialization = initializeDatabase().finally(() => {
+  if (databaseInitialization) return databaseInitialization;
+  if (isMongoConnected() && databaseInitialized) return Promise.resolve();
+
+  databaseInitialization = Promise.resolve()
+    .then(initializeDatabase)
+    .finally(() => {
       databaseInitialization = null;
     });
-  }
   return databaseInitialization;
 }
 
 async function initializeDatabase() {
-  const mongoUri = process.env.MONGODB_URI;
-  if (mongoUri) {
-    try {
-      console.log('Attempting MongoDB connection...');
-      await mongoose.connect(mongoUri, {
-        serverSelectionTimeoutMS: 5000
-      });
-      isMongoConnected = true;
-      console.log('Connected to MongoDB successfully.');
-      await runSafeDatabaseInitialization();
-      return;
-    } catch (err) {
-      isMongoConnected = false;
-      databaseInitialization = null;
+  try {
+    if (!process.env.MONGODB_URI) {
       if (isVercelDeployment || process.env.NODE_ENV === 'production') {
-        console.error('MongoDB initialization failed in Vercel/production runtime:', err.message);
-        throw err;
+        throw new Error('MONGODB_URI must be configured for the Vercel deployment.');
       }
-      console.warn('MongoDB connection failed. Operating in local memory fallback mode:', err.message);
+      console.log('No MONGODB_URI provided in environment. Operating in memory repository mode.');
+    } else {
+      console.log('Attempting MongoDB connection...');
+      await connectToMongoDB();
+      console.log('Connected to MongoDB successfully.');
+      if (!databaseInitialized) {
+        await runSafeDatabaseInitialization();
+        databaseInitialized = true;
+      }
+      return;
     }
-  } else {
+  } catch (err) {
     if (isVercelDeployment || process.env.NODE_ENV === 'production') {
-      throw new Error('MONGODB_URI must be configured for the Vercel deployment.');
+      console.error('MongoDB initialization failed in Vercel/production runtime:', err.message);
+      throw err;
     }
-    console.log('No MONGODB_URI provided in environment. Operating in memory repository mode.');
+    console.warn('MongoDB connection failed. Operating in local memory fallback mode:', err.message);
   }
 
   const authConfig = getAuthConfig();
@@ -371,7 +352,7 @@ function nextMemoryProductOrder(field) {
 export const dbService = {
   // Products
   async getProducts(filters = {}) {
-    if (isMongoConnected) {
+    if (isMongoConnected()) {
       const query = {};
       if (filters.category && filters.category !== 'all') query.category = filters.category;
       if (filters.featured === true) query.featured = true;
@@ -427,7 +408,7 @@ export const dbService = {
   },
 
   async getProductById(id) {
-    if (isMongoConnected) {
+    if (isMongoConnected()) {
       return await Product.findOne({ id }) || await Product.findById(id).catch(() => null);
     }
     return memoryStore.products.find(p => p.id === id) || null;
@@ -445,7 +426,7 @@ export const dbService = {
       updatedAt: new Date().toISOString()
     };
 
-    if (isMongoConnected) {
+    if (isMongoConnected()) {
       if (newProd.featured) newProd.featuredOrder = await reserveProductOrder('featuredOrder');
       else newProd.featuredOrder = null;
       if (newProd.showInMySetup) newProd.setupOrder = await reserveProductOrder('setupOrder');
@@ -468,7 +449,7 @@ export const dbService = {
     delete updated.featuredOrder;
     delete updated.setupOrder;
 
-    if (isMongoConnected) {
+    if (isMongoConnected()) {
       const existing = await Product.findOne({ id }).select('featured featuredOrder showInMySetup setupOrder').lean();
       if (!existing) return null;
 
@@ -507,7 +488,7 @@ export const dbService = {
   },
 
   async deleteProduct(id) {
-    if (isMongoConnected) {
+    if (isMongoConnected()) {
       return await Product.findOneAndDelete({ id });
     }
     const idx = memoryStore.products.findIndex(p => p.id === id);
@@ -520,7 +501,7 @@ export const dbService = {
 
   // Categories
   async getCategories() {
-    if (isMongoConnected) {
+    if (isMongoConnected()) {
       return await Category.find().sort({ order: 1, _id: 1 });
     }
     return memoryStore.categories;
@@ -528,12 +509,12 @@ export const dbService = {
 
   async createCategory(cat) {
     const id = cat.slug || cat.name.toLowerCase().replace(/\s+/g, '-');
-    const currentCategories = isMongoConnected
+    const currentCategories = isMongoConnected()
       ? await Category.find().select('order').lean()
       : memoryStore.categories;
     const nextOrder = currentCategories.reduce((maxOrder, category) => Math.max(maxOrder, category.order || 0), 0) + 1;
     const newCat = { ...cat, id, slug: id, order: cat.order ?? nextOrder };
-    if (isMongoConnected) {
+    if (isMongoConnected()) {
       return await Category.create(newCat);
     }
     memoryStore.categories.push(newCat);
@@ -542,7 +523,7 @@ export const dbService = {
 
   // Stores
   async getStores() {
-    if (isMongoConnected) {
+    if (isMongoConnected()) {
       return await Store.find();
     }
     return memoryStore.stores;
@@ -551,7 +532,7 @@ export const dbService = {
   async createStore(store) {
     const id = store.id || store.name.toLowerCase().replace(/\s+/g, '-');
     const newStore = { ...store, id };
-    if (isMongoConnected) {
+    if (isMongoConnected()) {
       return await Store.create(newStore);
     }
     memoryStore.stores.push(newStore);
@@ -560,7 +541,7 @@ export const dbService = {
 
   // Site Settings
   async getSiteConfig() {
-    if (isMongoConnected) {
+    if (isMongoConnected()) {
       const doc = await SiteSetting.findOne({ key: 'main_config' });
       return mergeSiteConfig(doc?.value);
     }
@@ -569,7 +550,7 @@ export const dbService = {
 
   async updateSiteConfig(newConfig) {
     const updatedConfig = mergeSiteConfig(await this.getSiteConfig(), newConfig);
-    if (isMongoConnected) {
+    if (isMongoConnected()) {
       await SiteSetting.findOneAndUpdate(
         { key: 'main_config' },
         { key: 'main_config', value: updatedConfig, updatedBy: 'admin' },
@@ -596,7 +577,7 @@ export const dbService = {
       updatedAt: new Date()
     };
 
-    if (isMongoConnected) {
+    if (isMongoConnected()) {
       return await CollaborationInquiry.create(inquiry);
     }
 
@@ -606,7 +587,7 @@ export const dbService = {
   },
 
   async getCollaborationInquiries() {
-    if (isMongoConnected) {
+    if (isMongoConnected()) {
       return await CollaborationInquiry.find().sort({ createdAt: -1 });
     }
 
@@ -615,7 +596,7 @@ export const dbService = {
   },
 
   async getCollaborationInquiryById(id) {
-    if (isMongoConnected) {
+    if (isMongoConnected()) {
       return await CollaborationInquiry.findOne({ inquiryId: id }) || await CollaborationInquiry.findById(id).catch(() => null);
     }
 
@@ -629,7 +610,7 @@ export const dbService = {
       throw new Error('Invalid inquiry status');
     }
 
-    if (isMongoConnected) {
+    if (isMongoConnected()) {
       const updated = await CollaborationInquiry.findOneAndUpdate(
         { inquiryId: id },
         { status, updatedAt: new Date() },
@@ -651,7 +632,7 @@ export const dbService = {
   },
 
   async deleteCollaborationInquiry(id) {
-    if (isMongoConnected) {
+    if (isMongoConnected()) {
       const deleted = await CollaborationInquiry.findOneAndDelete({ inquiryId: id });
       return deleted;
     }
@@ -675,7 +656,7 @@ export const dbService = {
       timestamp: new Date()
     };
 
-    if (isMongoConnected) {
+    if (isMongoConnected()) {
       return await Click.create(record);
     }
     record.id = 'clk-' + Date.now().toString(36) + Math.random().toString(36).substr(2, 4);
@@ -685,11 +666,11 @@ export const dbService = {
 
   async getAnalyticsSummary() {
     const [clicks, outboundProducts, siteSetting] = await Promise.all([
-      isMongoConnected ? Click.find().sort({ timestamp: -1 }).lean() : [...memoryStore.clicks],
-      isMongoConnected
+      isMongoConnected() ? Click.find().sort({ timestamp: -1 }).lean() : [...memoryStore.clicks],
+      isMongoConnected()
         ? Product.find({ published: true, affiliateUrl: { $ne: '' } }).sort({ createdAt: -1, _id: 1 }).lean()
         : memoryStore.products.filter((product) => product.published !== false && product.affiliateUrl && product.affiliateUrl.trim() !== ''),
-      isMongoConnected ? SiteSetting.findOne({ key: 'main_config' }).select('value createdAt').lean() : null
+      isMongoConnected() ? SiteSetting.findOne({ key: 'main_config' }).select('value createdAt').lean() : null
     ]);
 
     const totalClicks = clicks.length;
