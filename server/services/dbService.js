@@ -684,9 +684,13 @@ export const dbService = {
   },
 
   async getAnalyticsSummary() {
-    const clicks = isMongoConnected
-      ? await Click.find().sort({ timestamp: -1 }).limit(1000)
-      : memoryStore.clicks;
+    const [clicks, outboundProducts, siteSetting] = await Promise.all([
+      isMongoConnected ? Click.find().sort({ timestamp: -1 }).lean() : [...memoryStore.clicks],
+      isMongoConnected
+        ? Product.find({ published: true, affiliateUrl: { $ne: '' } }).sort({ createdAt: -1, _id: 1 }).lean()
+        : memoryStore.products.filter((product) => product.published !== false && product.affiliateUrl && product.affiliateUrl.trim() !== ''),
+      isMongoConnected ? SiteSetting.findOne({ key: 'main_config' }).select('value createdAt').lean() : null
+    ]);
 
     const totalClicks = clicks.length;
 
@@ -715,9 +719,68 @@ export const dbService = {
       .map(([store, count]) => ({ store, count }))
       .sort((a, b) => b.count - a.count);
 
+    const clickCountsById = new Map();
+    const clickCountsByName = new Map();
+
+    clicks.forEach((click) => {
+      const productId = click.productId && String(click.productId).trim() && String(click.productId).trim() !== 'unknown'
+        ? String(click.productId).trim()
+        : null;
+      const productName = click.productName ? String(click.productName).trim() : '';
+
+      if (productId) {
+        clickCountsById.set(productId, (clickCountsById.get(productId) || 0) + 1);
+      }
+
+      if (productName) {
+        const key = productName.toLowerCase();
+        clickCountsByName.set(key, (clickCountsByName.get(key) || 0) + 1);
+      }
+    });
+
+    const outboundLinks = outboundProducts
+      .map((product) => {
+        const productId = product.id ? String(product.id) : '';
+        const productName = product.name ? String(product.name).trim() : 'Unknown Product';
+        const matchedClicks = productId
+          ? clickCountsById.get(productId) ?? clickCountsByName.get(productName.toLowerCase()) ?? 0
+          : clickCountsByName.get(productName.toLowerCase()) ?? 0;
+
+        return {
+          productId: productId || productName,
+          name: productName,
+          store: product.storeName || product.platform || 'Amazon India',
+          affiliateUrl: product.affiliateUrl || '',
+          clicks: matchedClicks,
+          createdAt: product.createdAt || null,
+          updatedAt: product.updatedAt || null
+        };
+      });
+
+    const siteConfig = mergeSiteConfig(siteSetting?.value || memoryStore.siteConfig);
+    const storefrontUrl = siteConfig.amazonStorefrontUrl;
+    if (storefrontUrl) {
+      const storefrontId = 'amazon-storefront-official';
+      outboundLinks.push({
+        productId: storefrontId,
+        name: 'Amazon Storefront',
+        store: 'Amazon Storefront',
+        affiliateUrl: storefrontUrl,
+        clicks: clickCountsById.get(storefrontId) || clickCountsByName.get('chirag ackerman official amazon storefront') || 0,
+        createdAt: siteSetting?.createdAt || null,
+        updatedAt: null
+      });
+    }
+
+    outboundLinks.sort((a, b) => {
+      if (b.clicks !== a.clicks) return b.clicks - a.clicks;
+      return String(a.name || '').localeCompare(String(b.name || ''));
+    });
+
     return {
       totalClicks,
       topProducts,
+      outboundLinks,
       storeBreakdown,
       deviceBreakdown: deviceMap,
       recentClicks: clicks.slice(0, 15)

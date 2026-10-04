@@ -96,6 +96,7 @@ export default function AdminDashboardPage({ onNavigate }) {
   // Analytics Data
   const [analytics, setAnalytics] = useState(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [analyticsSortBy, setAnalyticsSortBy] = useState('most-clicked');
   const [inquiries, setInquiries] = useState([]);
   const [inquiriesLoading, setInquiriesLoading] = useState(false);
   const [selectedInquiry, setSelectedInquiry] = useState(null);
@@ -181,6 +182,40 @@ export default function AdminDashboardPage({ onNavigate }) {
       setInquiriesLoading(false);
     }
   };
+
+  const sortedOutboundLinks = React.useMemo(() => {
+    const links = analytics?.outboundLinks || [];
+    if (!links.length) return [];
+
+    const getCreatedAtValue = (link) => {
+      const dateValue = link?.createdAt ? new Date(link.createdAt) : new Date(0);
+      return Number.isNaN(dateValue.getTime()) ? new Date(0) : dateValue;
+    };
+
+    const sorted = [...links];
+    switch (analyticsSortBy) {
+      case 'latest':
+        sorted.sort((a, b) => {
+          const diff = getCreatedAtValue(b).getTime() - getCreatedAtValue(a).getTime();
+          return diff !== 0 ? diff : (b.clicks || 0) - (a.clicks || 0);
+        });
+        break;
+      case 'oldest':
+        sorted.sort((a, b) => {
+          const diff = getCreatedAtValue(a).getTime() - getCreatedAtValue(b).getTime();
+          return diff !== 0 ? diff : (b.clicks || 0) - (a.clicks || 0);
+        });
+        break;
+      case 'most-clicked':
+      default:
+        sorted.sort((a, b) => {
+          const diff = (b.clicks || 0) - (a.clicks || 0);
+          return diff !== 0 ? diff : String(a.name || '').localeCompare(String(b.name || ''));
+        });
+        break;
+    }
+    return sorted;
+  }, [analytics, analyticsSortBy]);
 
   const handleStatusChange = async (id, status) => {
     try {
@@ -1212,32 +1247,53 @@ export default function AdminDashboardPage({ onNavigate }) {
             </div>
           </div>
 
-          {/* Top Clicked Gear Table */}
+          {/* Outbound Links */}
           <div className="p-6 rounded-2xl bg-[#120D1A] border border-purple-500/15 space-y-4">
-            <h3 className="font-display font-bold text-lg text-white">
-              Top Clicked Products
-            </h3>
-            {analytics?.topProducts && analytics.topProducts.length > 0 ? (
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <h3 className="font-display font-bold text-lg text-white">
+                Outbound Links
+              </h3>
+              <label className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-[#A8A0B8]">
+                <span>Sort By</span>
+                <select
+                  value={analyticsSortBy}
+                  onChange={(e) => setAnalyticsSortBy(e.target.value)}
+                  className="rounded-lg border border-purple-500/20 bg-[#0B0710] px-2.5 py-2 text-xs text-white focus:outline-none focus:ring-2 focus:ring-purple-500/40"
+                  aria-label="Sort outbound links"
+                >
+                  <option value="most-clicked">Most Clicked</option>
+                  <option value="latest">Latest</option>
+                  <option value="oldest">Oldest</option>
+                </select>
+              </label>
+            </div>
+
+            {sortedOutboundLinks.length > 0 ? (
               <div className="space-y-2">
-                {analytics.topProducts.map((p, idx) => (
+                {sortedOutboundLinks.map((link, idx) => (
                   <div
-                    key={idx}
-                    className="p-3.5 rounded-xl bg-[#0B0710] border border-purple-500/10 flex items-center justify-between text-xs"
+                    key={`${link.productId}-${idx}`}
+                    className="p-3.5 rounded-xl bg-[#0B0710] border border-purple-500/10 flex items-center justify-between gap-3 text-xs"
                   >
-                    <div className="flex items-center gap-3">
-                      <span className="w-6 h-6 rounded-md bg-purple-950 text-purple-300 font-bold flex items-center justify-center font-mono">
-                        0{idx + 1}
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="w-8 h-8 rounded-md bg-purple-950 text-purple-300 font-bold flex items-center justify-center font-mono text-[11px]">
+                        {String(idx + 1).padStart(2, '0')}
                       </span>
-                      <span className="font-semibold text-white">{p.name}</span>
+                      <div className="min-w-0">
+                        <div className="font-semibold text-white truncate">{link.name}</div>
+                        {link.store ? (
+                          <div className="text-[11px] text-[#A8A0B8] truncate">{link.store}</div>
+                        ) : null}
+                      </div>
                     </div>
-                    <span className="font-mono font-bold text-purple-300 font-mono-nums">
-                      {p.count} {p.count === 1 ? 'click' : 'clicks'}
+                    <span className="font-mono font-bold text-purple-300 font-mono-nums whitespace-nowrap">
+                      {link.clicks} {link.clicks === 1 ? 'click' : 'clicks'}
                     </span>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-xs text-[#A8A0B8]">No top clicked products yet.</p>
+              <p className="text-xs text-[#A8A0B8]">No outbound links have been configured yet.</p>
             )}
           </div>
         </div>
