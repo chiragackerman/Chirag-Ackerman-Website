@@ -16,33 +16,29 @@ import ContactPage from './pages/ContactPage.jsx';
 import AdminDashboardPage from './pages/AdminDashboardPage.jsx';
 import AffiliateDisclosurePage from './pages/AffiliateDisclosurePage.jsx';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage.jsx';
+import { resolveRoute } from './utils/routeResolver.js';
 
 export default function App() {
-  const [activeRoute, setActiveRoute] = useState('home');
-  const [selectedProductId, setSelectedProductId] = useState(null);
-  const [selectedCategorySlug, setSelectedCategorySlug] = useState('all');
+  const [initialRoute] = useState(() => resolveRoute(window.location));
+  const [activeRoute, setActiveRoute] = useState(initialRoute.route);
+  const [selectedProductId, setSelectedProductId] = useState(initialRoute.productId || null);
+  const [selectedCategorySlug, setSelectedCategorySlug] = useState(initialRoute.categorySlug || 'all');
 
-  // Sync with browser hash on load and hashchange
+  // Keep route state in sync with existing hash navigation and direct path changes.
   useEffect(() => {
-    const handleHash = () => {
-      const hash = window.location.hash.replace('#', '') || 'home';
-      if (hash.startsWith('product/')) {
-        const pId = hash.replace('product/', '');
-        setSelectedProductId(pId);
-        setActiveRoute('product');
-      } else if (hash.startsWith('category/')) {
-        const rawCategory = hash.replace('category/', '');
-        const cat = rawCategory === 'monitors' ? 'collectibles-decor' : rawCategory;
-        setSelectedCategorySlug(cat);
-        setActiveRoute('shop');
-      } else {
-        setActiveRoute(hash);
-      }
+    const handleLocationChange = () => {
+      const routeState = resolveRoute(window.location);
+      setActiveRoute(routeState.route);
+      if (routeState.productId) setSelectedProductId(routeState.productId);
+      if (routeState.categorySlug) setSelectedCategorySlug(routeState.categorySlug);
     };
 
-    handleHash();
-    window.addEventListener('hashchange', handleHash);
-    return () => window.removeEventListener('hashchange', handleHash);
+    window.addEventListener('hashchange', handleLocationChange);
+    window.addEventListener('popstate', handleLocationChange);
+    return () => {
+      window.removeEventListener('hashchange', handleLocationChange);
+      window.removeEventListener('popstate', handleLocationChange);
+    };
   }, []);
 
   const navigateTo = (route, param = null) => {

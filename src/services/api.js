@@ -9,7 +9,7 @@ import { defaultSiteConfig } from '../data/defaultSiteConfig.js';
 
 const API_BASE = '/api';
 
-export async function fetchProducts(filters = {}) {
+export async function fetchProducts(filters = {}, options = {}) {
   try {
     const params = new URLSearchParams();
     if (filters.category && filters.category !== 'all') params.append('category', filters.category);
@@ -20,6 +20,7 @@ export async function fetchProducts(filters = {}) {
     if (!res.ok) throw new Error('Failed to fetch products');
     return await res.json();
   } catch (err) {
+    options.onError?.(err);
     console.warn('API fetchProducts fallback:', err.message);
     let list = [...initialProducts];
     if (filters.category && filters.category !== 'all') {
@@ -171,12 +172,13 @@ export async function deleteProduct(id, token) {
   return await res.json();
 }
 
-export async function fetchCategories() {
+export async function fetchCategories(options = {}) {
   try {
     const res = await fetch(`${API_BASE}/categories`);
     if (!res.ok) throw new Error('Failed to fetch categories');
     return await res.json();
-  } catch {
+  } catch (err) {
+    options.onError?.(err);
     return initialCategories;
   }
 }

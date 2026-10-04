@@ -3,10 +3,11 @@ import { useSite } from '../context/SiteContext.jsx';
 import CategoryCard from '../components/CategoryCard.jsx';
 import AffiliateDisclosure from '../components/AffiliateDisclosure.jsx';
 import SEOHead from '../components/SEOHead.jsx';
+import { CategoryCardSkeleton, CatalogErrorNotice } from '../components/CatalogSkeletons.jsx';
 import { Layers } from 'lucide-react';
 
 export default function CategoriesPage({ onSelectCategory, onNavigate }) {
-  const { categories, products } = useSite();
+  const { categories, products, loading, productsError, categoriesError, refreshData } = useSite();
 
   return (
     <div className="max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-10 xl:px-12 pt-20 sm:pt-24 pb-12 space-y-8 sm:space-y-10 text-left">
@@ -35,8 +36,10 @@ export default function CategoriesPage({ onSelectCategory, onNavigate }) {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 auto-rows-fr gap-6">
-        {categories.map((cat) => {
+      {(productsError || categoriesError) && <CatalogErrorNotice onRetry={refreshData} />}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 auto-rows-fr gap-6" aria-busy={loading}>
+        {loading ? Array.from({ length: 6 }, (_, index) => <CategoryCardSkeleton key={index} />) : categories.map((cat) => {
           const count = products.filter((p) => p.category === (cat.slug || cat.id) && p.published).length;
           return (
             <div key={cat.slug || cat.id} className="relative">
@@ -50,6 +53,9 @@ export default function CategoriesPage({ onSelectCategory, onNavigate }) {
           );
         })}
       </div>
+      {!loading && !categoriesError && categories.length === 0 && (
+        <p className="text-sm text-[#A8A0B8]">No categories are available yet.</p>
+      )}
 
       <AffiliateDisclosure compact={true} onNavigate={onNavigate} />
     </div>

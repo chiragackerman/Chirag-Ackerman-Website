@@ -4,10 +4,11 @@ import ProductCard from '../components/ProductCard.jsx';
 import FilterPanel from '../components/FilterPanel.jsx';
 import AffiliateDisclosure from '../components/AffiliateDisclosure.jsx';
 import SEOHead from '../components/SEOHead.jsx';
+import { CatalogErrorNotice, ProductCardSkeleton } from '../components/CatalogSkeletons.jsx';
 import { ShoppingBag, PackageOpen } from 'lucide-react';
 
 export default function ShopPage({ initialCategory = 'all', onSelectProduct, onNavigate }) {
-  const { products, categories } = useSite();
+  const { products, categories, loading, productsError, categoriesError, refreshData } = useSite();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(initialCategory || 'all');
@@ -164,9 +165,11 @@ export default function ShopPage({ initialCategory = 'all', onSelectProduct, onN
       />
 
       {/* Results Count & Current Active Filters info */}
+      {(productsError || categoriesError) && <CatalogErrorNotice onRetry={refreshData} />}
+
       <div className="flex items-center justify-between text-xs text-[#A8A0B8] px-1 font-mono">
         <span>
-          Showing <strong className="text-white font-mono-nums">{filteredProducts.length}</strong> items
+          {loading ? 'Loading products...' : <>Showing <strong className="text-white font-mono-nums">{filteredProducts.length}</strong> items</>}
         </span>
         {selectedCategory !== 'all' && (
           <span className="text-purple-300">
@@ -176,7 +179,11 @@ export default function ShopPage({ initialCategory = 'all', onSelectProduct, onN
       </div>
 
       {/* Products Grid */}
-      {filteredProducts.length > 0 ? (
+      {loading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6" aria-busy="true" aria-label="Loading products">
+          {Array.from({ length: 8 }, (_, index) => <ProductCardSkeleton key={index} />)}
+        </div>
+      ) : filteredProducts.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6">
           {filteredProducts.map((prod) => (
             <ProductCard
@@ -185,6 +192,11 @@ export default function ShopPage({ initialCategory = 'all', onSelectProduct, onN
               onSelectProduct={onSelectProduct}
             />
           ))}
+        </div>
+      ) : productsError ? (
+        <div className="rounded-3xl border border-amber-500/20 bg-[#120D1A]/70 px-4 py-12 text-center text-sm text-[#A8A0B8]" role="alert">
+          Products could not be loaded. Please try again.
+          <button onClick={refreshData} className="ml-3 font-semibold text-purple-300 hover:text-purple-200">Try Again</button>
         </div>
       ) : (
         <div className="text-center py-20 px-4 rounded-3xl bg-[#120D1A]/50 border border-purple-500/10 space-y-4">

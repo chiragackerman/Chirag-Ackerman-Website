@@ -2,12 +2,13 @@ import React, { useState } from 'react';
 import SetupItem from '../components/SetupItem.jsx';
 import AffiliateDisclosure from '../components/AffiliateDisclosure.jsx';
 import SEOHead from '../components/SEOHead.jsx';
+import { CatalogErrorNotice, SetupItemSkeleton } from '../components/CatalogSkeletons.jsx';
 import { useSite } from '../context/SiteContext.jsx';
 import { setupTourTags } from '../data/setupTourTags.js';
 import { Monitor, Compass, Sparkles, SlidersHorizontal } from 'lucide-react';
 
 export default function MySetupPage({ onSelectProduct, onNavigate }) {
-  const { products } = useSite();
+  const { products, loading, productsError, refreshData } = useSite();
   const [activeFilter, setActiveFilter] = useState('all');
 
   const setupCategories = ['all', ...setupTourTags];
@@ -107,7 +108,8 @@ export default function MySetupPage({ onSelectProduct, onNavigate }) {
 
       {/* Editorial Setup Items List */}
       <div className="space-y-4">
-        {filteredItems.map((item, index) => (
+        {productsError && <CatalogErrorNotice onRetry={refreshData} />}
+        {loading ? Array.from({ length: 3 }, (_, index) => <SetupItemSkeleton key={index} />) : filteredItems.map((item, index) => (
           <SetupItem
             key={`${item.id}-${item.category}`}
             item={item}
@@ -115,6 +117,9 @@ export default function MySetupPage({ onSelectProduct, onNavigate }) {
             onSelectProduct={onSelectProduct}
           />
         ))}
+        {!loading && !productsError && filteredItems.length === 0 && (
+          <p className="py-8 text-center text-sm text-[#A8A0B8]">No setup items are available in this category yet.</p>
+        )}
       </div>
 
       {/* Footer Disclosure */}

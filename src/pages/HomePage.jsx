@@ -7,10 +7,11 @@ import ProductCard from '../components/ProductCard.jsx';
 import AmazonStorefrontSection from '../components/AmazonStorefrontSection.jsx';
 import AffiliateDisclosure from '../components/AffiliateDisclosure.jsx';
 import SEOHead from '../components/SEOHead.jsx';
+import { CategoryCardSkeleton, CatalogErrorNotice, ProductCardSkeleton } from '../components/CatalogSkeletons.jsx';
 import { ArrowRight, Sparkles, Monitor, Layers } from 'lucide-react';
 
 export default function HomePage({ onNavigate, onSelectProduct, onSelectCategory }) {
-  const { products, categories, stores } = useSite();
+  const { products, categories, loading, productsError, categoriesError, refreshData } = useSite();
 
   const featuredProducts = products.filter((p) => p.featured && p.published).slice(0, 4);
   const displayCategories = categories.slice(0, 6);
@@ -56,6 +57,8 @@ export default function HomePage({ onNavigate, onSelectProduct, onSelectCategory
       {/* 2. Dynamic Creator Stats */}
       <Stats />
 
+      {(productsError || categoriesError) && <div className="max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-10 xl:px-12"><CatalogErrorNotice onRetry={refreshData} /></div>}
+
       {/* 3. FEATURED GEAR (Now moved ABOVE Shop By Category) */}
       <section className="max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-10 xl:px-12 py-4 sm:py-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-3 mb-6">
@@ -81,7 +84,7 @@ export default function HomePage({ onNavigate, onSelectProduct, onSelectCategory
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6">
-          {featuredProducts.map((prod) => (
+          {loading ? Array.from({ length: 4 }, (_, index) => <ProductCardSkeleton key={index} />) : featuredProducts.map((prod) => (
             <ProductCard
               key={prod.id}
               product={prod}
@@ -89,6 +92,9 @@ export default function HomePage({ onNavigate, onSelectProduct, onSelectCategory
             />
           ))}
         </div>
+        {!loading && !productsError && featuredProducts.length === 0 && (
+          <p className="text-sm text-[#A8A0B8]">No featured gear is available yet.</p>
+        )}
       </section>
 
       {/* 4. SHOP BY CATEGORY (Now follows Featured Gear) */}
@@ -116,7 +122,7 @@ export default function HomePage({ onNavigate, onSelectProduct, onSelectCategory
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
-          {displayCategories.map((cat) => (
+          {loading ? Array.from({ length: 3 }, (_, index) => <CategoryCardSkeleton key={index} />) : displayCategories.map((cat) => (
             <CategoryCard
               key={cat.slug || cat.id}
               category={cat}
@@ -124,6 +130,9 @@ export default function HomePage({ onNavigate, onSelectProduct, onSelectCategory
             />
           ))}
         </div>
+        {!loading && !categoriesError && displayCategories.length === 0 && (
+          <p className="text-sm text-[#A8A0B8]">No categories are available yet.</p>
+        )}
       </section>
 
       {/* 5. Amazon Storefront Spotlight */}

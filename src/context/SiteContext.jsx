@@ -19,9 +19,14 @@ export function SiteProvider({ children }) {
   const [categories, setCategories] = useState([]);
   const [stores, setStores] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [productsError, setProductsError] = useState(null);
+  const [categoriesError, setCategoriesError] = useState(null);
   const [siteConfigLoaded, setSiteConfigLoaded] = useState(false);
 
   const loadData = useCallback(async () => {
+    setLoading(true);
+    setProductsError(null);
+    setCategoriesError(null);
     try {
       const siteConfigRequest = fetchSiteConfig().then((configData) => {
         setSiteConfig(configData || defaultSiteConfig);
@@ -30,8 +35,8 @@ export function SiteProvider({ children }) {
       });
       const [configData, prodsData, catsData, storesData] = await Promise.all([
         siteConfigRequest,
-        fetchProducts(),
-        fetchCategories(),
+        fetchProducts({}, { onError: setProductsError }),
+        fetchCategories({ onError: setCategoriesError }),
         fetchStores()
       ]);
       setProducts(prodsData || []);
@@ -77,6 +82,8 @@ export function SiteProvider({ children }) {
         categories,
         stores,
         loading,
+        productsError,
+        categoriesError,
         siteConfigLoaded,
         refreshData: loadData,
         updateConfig,

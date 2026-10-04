@@ -83,7 +83,7 @@ const creatorStatsGroups = [
 
 export default function AdminDashboardPage({ onNavigate }) {
   const { adminUser, isAuthenticated, authLoading, login, logout } = useAuth();
-  const { siteConfig, updateConfig, products, categories, refreshData } = useSite();
+  const { siteConfig, updateConfig, products, categories, loading, productsError, categoriesError, refreshData } = useSite();
 
   const [activeTab, setActiveTab] = useState('overview');
 
@@ -95,10 +95,12 @@ export default function AdminDashboardPage({ onNavigate }) {
 
   // Analytics Data
   const [analytics, setAnalytics] = useState(null);
-  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [analyticsLoading, setAnalyticsLoading] = useState(true);
+  const [analyticsError, setAnalyticsError] = useState('');
   const [analyticsSortBy, setAnalyticsSortBy] = useState('most-clicked');
   const [inquiries, setInquiries] = useState([]);
-  const [inquiriesLoading, setInquiriesLoading] = useState(false);
+  const [inquiriesLoading, setInquiriesLoading] = useState(true);
+  const [inquiriesError, setInquiriesError] = useState('');
   const [selectedInquiry, setSelectedInquiry] = useState(null);
 
   // Product Editing / Modal State
@@ -160,11 +162,13 @@ export default function AdminDashboardPage({ onNavigate }) {
 
   const loadAnalyticsData = async () => {
     setAnalyticsLoading(true);
+    setAnalyticsError('');
     try {
       const data = await fetchAnalytics();
       setAnalytics(data);
     } catch (e) {
       console.warn('Analytics loading error:', e);
+      setAnalyticsError(e.message || 'Failed to load click analytics.');
     } finally {
       setAnalyticsLoading(false);
     }
@@ -172,12 +176,13 @@ export default function AdminDashboardPage({ onNavigate }) {
 
   const loadInquiriesData = async () => {
     setInquiriesLoading(true);
+    setInquiriesError('');
     try {
       const data = await fetchCollaborationInquiries();
       setInquiries(data || []);
     } catch (e) {
       console.warn('Inquiries loading error:', e);
-      setInquiries([]);
+      setInquiriesError(e.message || 'Failed to load collaboration inquiries.');
     } finally {
       setInquiriesLoading(false);
     }
@@ -750,8 +755,8 @@ export default function AdminDashboardPage({ onNavigate }) {
       <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar border-b border-purple-900/20 text-xs">
         {[
           { id: 'overview', label: 'Overview', icon: BarChart3 },
-          { id: 'products', label: `Products (${products.length})`, icon: Package },
-          { id: 'categories', label: `Categories (${categories.length})`, icon: Layers },
+          { id: 'products', label: `Products (${loading ? '…' : products.length})`, icon: Package },
+          { id: 'categories', label: `Categories (${loading ? '…' : categories.length})`, icon: Layers },
           { id: 'inquiries', label: `Collaboration Inquiries (${inquiries.length})`, icon: Mail },
           { id: 'analytics', label: 'Click Analytics', icon: MousePointerClick },
           { id: 'settings', label: 'Site Settings', icon: Settings }
@@ -785,10 +790,10 @@ export default function AdminDashboardPage({ onNavigate }) {
                 Total Catalog Products
               </span>
               <div className="text-3xl font-black text-white font-mono-nums">
-                {products.length}
+                {loading ? '…' : products.length}
               </div>
               <span className="text-xs text-purple-300">
-                {products.filter((p) => p.featured).length} marked featured
+                {loading ? 'Loading catalog' : `${products.filter((p) => p.featured).length} marked featured`}
               </span>
             </div>
 
@@ -797,7 +802,7 @@ export default function AdminDashboardPage({ onNavigate }) {
                 Outbound Affiliate Clicks
               </span>
               <div className="text-3xl font-black text-white font-mono-nums">
-                {analytics?.totalClicks || 0}
+                {analyticsLoading ? '…' : analyticsError ? '—' : analytics?.totalClicks || 0}
               </div>
               <span className="text-xs text-purple-300">
                 Direct retailer referrals
@@ -809,7 +814,7 @@ export default function AdminDashboardPage({ onNavigate }) {
                 Active Categories
               </span>
               <div className="text-3xl font-black text-white font-mono-nums">
-                {categories.length}
+                {loading ? '…' : categories.length}
               </div>
               <span className="text-xs text-purple-300">Mice, Keyboards, Audio...</span>
             </div>
@@ -860,7 +865,14 @@ export default function AdminDashboardPage({ onNavigate }) {
               <h3 className="font-display font-bold text-lg text-white">
                 Recent Outbound Click Events
               </h3>
-              {analytics?.recentClicks && analytics.recentClicks.length > 0 ? (
+              {analyticsLoading ? (
+                <p className="text-xs text-[#A8A0B8] animate-pulse">Loading recent clicks...</p>
+              ) : analyticsError ? (
+                <div className="text-xs text-amber-200" role="alert">
+                  {analyticsError}{' '}
+                  <button onClick={loadAnalyticsData} className="font-semibold text-purple-300 hover:text-purple-200">Try Again</button>
+                </div>
+              ) : analytics?.recentClicks && analytics.recentClicks.length > 0 ? (
                 <div className="space-y-2">
                   {analytics.recentClicks.slice(0, 5).map((clk, i) => (
                     <div
@@ -912,6 +924,12 @@ export default function AdminDashboardPage({ onNavigate }) {
             </button>
           </div>
 
+          {productsError && (
+            <div className="rounded-xl border border-amber-500/20 bg-[#171020] p-4 text-xs text-amber-100" role="alert">
+              The product request failed. Showing any available saved products.{' '}
+              <button onClick={refreshData} className="font-semibold text-purple-300 hover:text-purple-200">Try Again</button>
+            </div>
+          )}
           <div className="rounded-2xl border border-purple-500/15 overflow-hidden bg-[#120D1A]">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
@@ -926,7 +944,11 @@ export default function AdminDashboardPage({ onNavigate }) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-purple-900/15">
-                  {products.map((prod) => (
+                  {loading ? (
+                    <tr><td colSpan="6" className="p-5 text-center text-xs text-[#A8A0B8] animate-pulse">Loading products...</td></tr>
+                  ) : products.length === 0 ? (
+                    <tr><td colSpan="6" className="p-5 text-center text-xs text-[#A8A0B8]">{productsError ? 'Products could not be loaded.' : 'No products have been added yet.'}</td></tr>
+                  ) : products.map((prod) => (
                     <tr key={prod.id} className="hover:bg-purple-950/20 transition-colors">
                       <td className="p-3.5">
                         <div className="flex items-center gap-3">
@@ -1021,6 +1043,11 @@ export default function AdminDashboardPage({ onNavigate }) {
           {inquiriesLoading ? (
             <div className="p-6 rounded-2xl bg-[#120D1A] border border-purple-500/15 text-xs text-[#A8A0B8]">
               Loading inquiries...
+            </div>
+          ) : inquiriesError ? (
+            <div className="p-6 rounded-2xl bg-[#120D1A] border border-amber-500/20 text-xs text-amber-100" role="alert">
+              {inquiriesError}{' '}
+              <button onClick={loadInquiriesData} className="font-semibold text-purple-300 hover:text-purple-200">Try Again</button>
             </div>
           ) : inquiries.length === 0 ? (
             <div className="p-6 rounded-2xl bg-[#120D1A] border border-purple-500/15 text-xs text-[#A8A0B8]">
@@ -1155,7 +1182,9 @@ export default function AdminDashboardPage({ onNavigate }) {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {categories.map((cat) => (
+            {loading ? Array.from({ length: 6 }, (_, index) => (
+              <div key={index} className="h-44 rounded-2xl border border-purple-500/15 bg-[#120D1A] animate-pulse" aria-hidden="true" />
+            )) : categories.map((cat) => (
               <div
                 key={cat.slug || cat.id}
                 className="p-5 rounded-2xl bg-[#120D1A] border border-purple-500/15 space-y-2"
@@ -1177,6 +1206,15 @@ export default function AdminDashboardPage({ onNavigate }) {
               </div>
             ))}
           </div>
+          {categoriesError && (
+            <div className="rounded-xl border border-amber-500/20 bg-[#171020] p-4 text-xs text-amber-100" role="alert">
+              The category request failed. Showing any available saved categories.{' '}
+              <button onClick={refreshData} className="font-semibold text-purple-300 hover:text-purple-200">Try Again</button>
+            </div>
+          )}
+          {!loading && categories.length === 0 && !categoriesError && (
+            <p className="text-xs text-[#A8A0B8]">No categories are available yet.</p>
+          )}
         </div>
       )}
 
@@ -1202,6 +1240,13 @@ export default function AdminDashboardPage({ onNavigate }) {
             </p>
           </div>
 
+          {analyticsError && (
+            <div className="rounded-xl border border-amber-500/20 bg-[#171020] p-4 text-xs text-amber-100" role="alert">
+              {analyticsError}{' '}
+              <button onClick={loadAnalyticsData} className="font-semibold text-purple-300 hover:text-purple-200">Try Again</button>
+            </div>
+          )}
+
           {/* Metric Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="p-6 rounded-2xl bg-[#120D1A] border border-purple-500/15 space-y-2">
@@ -1209,7 +1254,7 @@ export default function AdminDashboardPage({ onNavigate }) {
                 Total Outbound Clicks
               </span>
               <div className="text-4xl font-black text-white font-mono-nums">
-                {analytics?.totalClicks || 0}
+                {analyticsLoading ? '…' : analyticsError ? '—' : analytics?.totalClicks || 0}
               </div>
               <span className="text-xs text-purple-400">All-time tracked links</span>
             </div>
@@ -1223,13 +1268,13 @@ export default function AdminDashboardPage({ onNavigate }) {
                   <span className="flex items-center gap-1.5 text-xs text-[#A8A0B8]">
                     <Laptop className="w-3.5 h-3.5" /> Desktop
                   </span>
-                  <span>{analytics?.deviceBreakdown?.desktop || 0}</span>
+                  <span>{analyticsLoading ? '…' : analyticsError ? '—' : analytics?.deviceBreakdown?.desktop || 0}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-1.5 text-xs text-[#A8A0B8]">
                     <Smartphone className="w-3.5 h-3.5" /> Mobile
                   </span>
-                  <span>{analytics?.deviceBreakdown?.mobile || 0}</span>
+                  <span>{analyticsLoading ? '…' : analyticsError ? '—' : analytics?.deviceBreakdown?.mobile || 0}</span>
                 </div>
               </div>
             </div>
@@ -1239,10 +1284,10 @@ export default function AdminDashboardPage({ onNavigate }) {
                 Top Destination Store
               </span>
               <div className="text-xl font-bold text-white truncate">
-                {analytics?.storeBreakdown?.[0]?.store || 'Amazon India'}
+                {analyticsLoading ? 'Loading...' : analyticsError ? 'Unavailable' : analytics?.storeBreakdown?.[0]?.store || 'Amazon India'}
               </div>
               <span className="text-xs text-purple-400">
-                {analytics?.storeBreakdown?.[0]?.count || 0} clicks routed
+                {analyticsLoading ? 'Loading analytics...' : analyticsError ? 'Unavailable' : `${analytics?.storeBreakdown?.[0]?.count || 0} clicks routed`}
               </span>
             </div>
           </div>
@@ -1268,7 +1313,11 @@ export default function AdminDashboardPage({ onNavigate }) {
               </label>
             </div>
 
-            {sortedOutboundLinks.length > 0 ? (
+            {analyticsLoading ? (
+              <div className="space-y-2" aria-busy="true" aria-label="Loading outbound links">
+                {Array.from({ length: 4 }, (_, index) => <div key={index} className="h-14 rounded-xl border border-purple-500/10 bg-[#0B0710] animate-pulse" />)}
+              </div>
+            ) : analyticsError ? null : sortedOutboundLinks.length > 0 ? (
               <div className="space-y-2">
                 {sortedOutboundLinks.map((link, idx) => (
                   <div
